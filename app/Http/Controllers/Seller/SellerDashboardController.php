@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Models\ProductApproval;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Category;
 use App\Models\SellerProfile;
+use App\Models\Notification;
+use App\Services\ProductApprovalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -87,6 +90,7 @@ class SellerDashboardController extends Controller
             'stock' => 'required|integer|min:0',
         ]);
 
+        // Create product with pending approval status
         $product = Product::create([
             'name' => $request->name,
             'slug' => Str::slug($request->name) . '-' . Str::random(5),
@@ -99,9 +103,23 @@ class SellerDashboardController extends Controller
             'brand' => $request->brand,
             'color' => $request->color,
             'material' => $request->material,
-            'is_active' => true,
+            'is_active' => false, // Products are inactive until approved
+            'approval_status' => 'pending',
         ]);
 
+        // Check for flagged keywords
+        $approvalService = new ProductApprovalService();
+        $flaggedKeywords = $approvalService->checkForFlaggedKeywords($product->name, $product->description);
+
+        // Create product approval record
+        $approval = ProductApproval::create([
+            'product_id' => $product->id,
+            'seller_id' => auth()->id(),
+            'status' => 'pending',
+            'flagged_keywords' => !empty($flaggedKeywords) ? $flaggedKeywords : null,
+        ]);
+
+        // Upload product image if provided
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('products', 'public');
             $product->images()->create([
@@ -117,7 +135,29 @@ class SellerDashboardController extends Controller
             ]);
         }
 
-        return back()->with('success', 'Product created!');
+        // Send notification to admin about the new product
+        $adminUser = \App\Models\User::where('role', 'admin')->first();
+        if ($adminUser) {
+            $message = "New product added by {$request->user()->name}";
+            if (!empty($flaggedKeywords)) {
+                $message .= " (Flagged: " . implode(", ", $flaggedKeywords) . ")";
+            }
+            
+            Notification::create([
+                'sender_id' => auth()->id(),
+                'recipient_id' => $adminUser->id,
+                'type' => 'product_pending_approval',
+                'title' => 'New Product Pending Approval',
+                'message' => $message,
+                'action_data' => [
+                    'product_id' => $product->id,
+                    'approval_id' => $approval->id,
+                    'is_flagged' => !empty($flaggedKeywords),
+                ],
+            ]);
+        }
+
+        return back()->with('success', 'Product created! It is pending admin approval.');
     }
 
     public function updateProduct(Request $request, Product $product)

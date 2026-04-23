@@ -47,6 +47,18 @@ class HandleInertiaRequests
                 }
                 return 0;
             },
+            'sellerProfile' => function () use ($request) {
+                if ($request->user() && $request->user()->role === 'seller') {
+                    $profile = $request->user()->sellerProfile;
+                    if ($profile) {
+                        return [
+                            'shop_name' => $profile->shop_name,
+                            'shop_logo' => $profile->shop_logo ?: null,
+                        ];
+                    }
+                }
+                return null;
+            },
         ]);
 
         return $next($request);

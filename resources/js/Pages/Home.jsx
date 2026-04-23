@@ -64,11 +64,6 @@ function StatCard({ label, value, suffix = '', prefix = '', trend, icon: Icon })
 }
 
 function CategoryCard({ category }) {
-    const iconMap = {
-        'sofa': '🪑', 'briefcase': '👜', 'book-open': '📚',
-        'cpu': '💻', 'shirt': '👕', 'footprints': '👟',
-    };
-
     return (
         <Link href={`/products?category=${category.id}`} className="category-card glass-card">
             <div className="category-card__image">
@@ -76,7 +71,6 @@ function CategoryCard({ category }) {
                 <div className="category-card__overlay" />
             </div>
             <div className="category-card__content">
-                <span className="category-card__icon">{iconMap[category.icon] || '📦'}</span>
                 <h3 className="category-card__name">{category.name}</h3>
                 <p className="category-card__count">{category.products_count} Products</p>
             </div>
@@ -172,9 +166,9 @@ export default function Home({ categories, featuredProducts, dealProducts, trend
                     <div className="hero__badge" style={{ display: 'none' }}>
                     </div>
 
-                    <h1 className="hero__title">
+                    <h1 className="hero__title" style={{ background: 'none', color: '#000000', WebkitBackgroundClip: 'unset', WebkitTextFillColor: 'unset' }}>
                         {typedText}
-                        <span className="hero__cursor">|</span>
+                        <span className="hero__cursor" style={{ color: '#8B5CF6' }}>|</span>
                     </h1>
 
                     <p className="hero__subtitle">

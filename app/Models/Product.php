@@ -13,7 +13,7 @@ class Product extends Model
         'category_id', 'seller_id', 'name', 'slug', 'description', 'specifications',
         'price', 'compare_price', 'stock', 'sku', 'brand', 'color', 'material',
         'size', 'weight', 'views', 'sales_count', 'rating', 'review_count',
-        'is_featured', 'is_active',
+        'is_featured', 'is_active', 'approval_status',
     ];
 
     protected $casts = [
@@ -22,6 +22,7 @@ class Product extends Model
         'rating' => 'decimal:2',
         'is_featured' => 'boolean',
         'is_active' => 'boolean',
+        'approval_status' => 'string',
     ];
 
     public function category()
@@ -52,6 +53,11 @@ class Product extends Model
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function approval()
+    {
+        return $this->hasOne(ProductApproval::class);
     }
 
     public function getDiscountPercentAttribute()

@@ -1,10 +1,12 @@
 import React from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutDashboard, Users, Package, Tags, ShoppingCart, Store, Settings, ChevronRight, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, Users, Package, Tags, ShoppingCart, Store, Settings, ChevronRight, LogOut, User, MessageSquare, CheckCircle } from 'lucide-react';
 import '../Pages/Admin/Admin.scss';
 
 const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/admin/dashboard' },
+    { icon: MessageSquare, label: 'Messaging', href: '/admin/messaging' },
+    { icon: CheckCircle, label: 'Product Approvals', href: '/admin/product-approvals' },
     { icon: Users, label: 'Users', href: '/admin/users' },
     { icon: Package, label: 'Products', href: '/admin/products' },
     { icon: Tags, label: 'Categories', href: '/admin/categories' },
@@ -19,7 +21,7 @@ export default function AdminLayout({ children, title }) {
     return (
         <div className="admin-layout">
             <aside className="admin-sidebar">
-                <div className="admin-sidebar__header">
+                <div className="admin-sidebar__header" style={{ justifyContent: 'center' }}>
                     <Link href="/" className="admin-sidebar__logo">
                         <span className="admin-sidebar__logo-text">SHOP</span>
                         <span className="admin-sidebar__logo-accent">HUB</span>

@@ -18,15 +18,28 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
         'email',
         'password',
         'role',
+        'gender',
+        'date_of_birth',
         'avatar',
+        'profile_photo',
         'phone',
+        'phone_country_code',
+        'alternative_email',
         'address',
+        'street_address',
+        'barangay',
         'city',
         'province',
         'zip_code',
+        'country',
+        'account_type',
+        'email_verified',
+        'otp_verified_at',
     ];
 
     /**
@@ -46,6 +59,8 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'date_of_birth' => 'date',
+        'otp_verified_at' => 'datetime',
     ];
 
     public function isAdmin()
@@ -86,5 +101,37 @@ class User extends Authenticatable
     public function products()
     {
         return $this->hasMany(Product::class, 'seller_id');
+    }
+
+    /**
+     * Get notifications sent to this user
+     */
+    public function receivedNotifications()
+    {
+        return $this->hasMany(Notification::class, 'recipient_id');
+    }
+
+    /**
+     * Get notifications sent by this admin
+     */
+    public function sentNotifications()
+    {
+        return $this->hasMany(Notification::class, 'sender_id');
+    }
+
+    /**
+     * Get unread notifications for this user
+     */
+    public function unreadNotifications()
+    {
+        return $this->receivedNotifications()->unread();
+    }
+
+    /**
+     * Get seller profile if user is seller
+     */
+    public function getFullNameAttribute()
+    {
+        return trim("{$this->first_name} {$this->last_name}");
     }
 }

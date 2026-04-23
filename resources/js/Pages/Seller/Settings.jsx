@@ -244,13 +244,31 @@ export default function SellerSettings({ profile, auth }) {
         <SellerLayout title="Shop Settings">
             <Head title="Seller - Settings" />
 
+            <style>{`
+                @media (max-width: 640px) {
+                    #seller-settings-card {
+                        padding: 24px 20px !important;
+                    }
+                    #seller-settings-grid {
+                        grid-template-columns: 1fr !important;
+                    }
+                    #seller-settings-logo-container {
+                        flex-direction: column;
+                        align-items: flex-start !important;
+                    }
+                    #seller-settings-logo-image {
+                        margin-bottom: 12px;
+                    }
+                }
+            `}</style>
+
             <div style={containerStyle}>
-                <div style={cardStyle}>
+                <div style={cardStyle} id="seller-settings-card">
                     <h1 style={headingStyle}>Shop Settings</h1>
 
                     <form onSubmit={handleSubmit}>
                         {/* Owner & Shop Name Section */}
-                        <div style={sectionStyle}>
+                        <div style={sectionStyle} id="seller-settings-grid">
                             <div style={formGroupStyle}>
                                 <label htmlFor="owner-name" style={labelStyle}>Owner Name</label>
                                 <input
@@ -285,8 +303,8 @@ export default function SellerSettings({ profile, auth }) {
                         {/* Logo Upload Section */}
                         <div style={logoUploadStyle}>
                             <label style={labelStyle} htmlFor="shop-logo">Shop Logo</label>
-                            <div style={logoPreviewContainerStyle}>
-                                <div style={logoImageStyle}>
+                            <div style={logoPreviewContainerStyle} id="seller-settings-logo-container">
+                                <div style={logoImageStyle} id="seller-settings-logo-image">
                                     {previewLogo ? (
                                         <img src={previewLogo} alt="Shop Logo Preview" style={logoSubmittedImageStyle} />
                                     ) : (

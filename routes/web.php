@@ -8,8 +8,11 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminCrudController;
+use App\Http\Controllers\Admin\AdminMessagingController;
+use App\Http\Controllers\Admin\ProductApprovalController;
 use App\Http\Controllers\Seller\SellerDashboardController;
 
 /*
@@ -31,12 +34,22 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/register/send-otp', [AuthController::class, 'sendRegisterOTP']);
+    Route::post('/register/verify-otp', [AuthController::class, 'verifyRegisterOTP']);
+
+    // Admin auth
+    Route::get('/admin/login', [AuthController::class, 'showAdminLogin'])->name('admin.login');
+    Route::post('/admin/login', [AuthController::class, 'adminLogin']);
+    Route::get('/admin/register', [AuthController::class, 'showAdminRegister'])->name('admin.register');
+    Route::post('/admin/register', [AuthController::class, 'adminRegister']);
 
     // Seller auth (separate portal)
     Route::get('/seller/login', [AuthController::class, 'showSellerLogin'])->name('seller.login');
     Route::post('/seller/login', [AuthController::class, 'sellerLogin']);
     Route::get('/seller/register', [AuthController::class, 'showSellerRegister'])->name('seller.register');
     Route::post('/seller/register', [AuthController::class, 'sellerRegister']);
+    Route::post('/seller/register/send-otp', [AuthController::class, 'sendSellerRegisterOTP']);
+    Route::post('/seller/register/verify-otp', [AuthController::class, 'verifySellerRegisterOTP']);
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
@@ -62,6 +75,13 @@ Route::middleware('auth')->group(function () {
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update.post');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 });
 
 // ─── ADMIN ───
@@ -88,7 +108,20 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     Route::get('/sellers', [AdminCrudController::class, 'sellers'])->name('sellers');
     Route::put('/sellers/{seller}/verify', [AdminCrudController::class, 'verifySeller'])->name('sellers.verify');
-    Route::post('/sellers/invite', [AdminCrudController::class, 'generateInviteCode'])->name('sellers.invite');
+
+    // Admin messaging
+    Route::post('/messages/send', [AdminMessagingController::class, 'sendMessage'])->name('messages.send');
+    Route::get('/messages/sent', [AdminMessagingController::class, 'sentMessages'])->name('messages.sent');
+    Route::get('/messages/unread', [AdminMessagingController::class, 'unreadMessages'])->name('messages.unread');
+    Route::get('/messages/stats', [AdminMessagingController::class, 'messageStats'])->name('messages.stats');
+
+    // Product approval workflow
+    Route::get('/product-approvals/pending', [ProductApprovalController::class, 'pendingApprovals'])->name('approvals.pending');
+    Route::get('/product-approvals', [ProductApprovalController::class, 'allApprovals'])->name('approvals.all');
+    Route::get('/product-approvals/flagged', [ProductApprovalController::class, 'flaggedProducts'])->name('approvals.flagged');
+    Route::post('/product-approvals/{approval}/approve', [ProductApprovalController::class, 'approve'])->name('approvals.approve');
+    Route::post('/product-approvals/{approval}/reject', [ProductApprovalController::class, 'reject'])->name('approvals.reject');
+    Route::get('/product-approvals/stats', [ProductApprovalController::class, 'stats'])->name('approvals.stats');
 });
 
 // ─── SELLER ───

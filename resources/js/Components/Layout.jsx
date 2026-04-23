@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { ShoppingCart, User, Menu, X, Search, ChevronDown, LogOut, Package, Settings, LayoutDashboard } from 'lucide-react';
+import { ShoppingCart, User, Menu, X, Search, ChevronDown, LogOut, Package, Settings, LayoutDashboard, Bell } from 'lucide-react';
+import { useNotifications } from './NotificationProvider';
+import { NotificationDropdown } from './Notification';
 import './Layout.scss';
 
 export default function Layout({ children }) {
@@ -8,6 +10,9 @@ export default function Layout({ children }) {
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+    const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+
+    const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -16,12 +21,15 @@ export default function Layout({ children }) {
     }, []);
 
     useEffect(() => {
-        const handleClick = () => setUserDropdownOpen(false);
-        if (userDropdownOpen) {
+        const handleClick = () => {
+            setUserDropdownOpen(false);
+            setNotificationDropdownOpen(false);
+        };
+        if (userDropdownOpen || notificationDropdownOpen) {
             setTimeout(() => document.addEventListener('click', handleClick), 0);
             return () => document.removeEventListener('click', handleClick);
         }
-    }, [userDropdownOpen]);
+    }, [userDropdownOpen, notificationDropdownOpen]);
 
     return (
         <div className="layout">
@@ -54,10 +62,47 @@ export default function Layout({ children }) {
                                     )}
                                 </Link>
 
+                                {/* Notifications */}
+                                <div className="navbar__notification-menu">
+                                    <button
+                                        className="navbar__notification-btn"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setNotificationDropdownOpen(!notificationDropdownOpen);
+                                            setUserDropdownOpen(false);
+                                        }}
+                                        style={{ position: 'relative' }}
+                                    >
+                                        <Bell size={18} />
+                                        {unreadCount > 0 && (
+                                            <span className="navbar__notification-badge">
+                                                {unreadCount > 99 ? '99+' : unreadCount}
+                                            </span>
+                                        )}
+                                    </button>
+
+                                    {notificationDropdownOpen && (
+                                        <NotificationDropdown
+                                            notifications={notifications}
+                                            onMarkAsRead={markAsRead}
+                                            onMarkAllAsRead={markAllAsRead}
+                                            onClose={deleteNotification}
+                                            onViewAll={() => {
+                                                setNotificationDropdownOpen(false);
+                                                window.location.href = '/notifications';
+                                            }}
+                                        />
+                                    )}
+                                </div>
+
                                 <div className="navbar__user-menu">
                                     <button
                                         className="navbar__user-btn"
-                                        onClick={(e) => { e.stopPropagation(); setUserDropdownOpen(!userDropdownOpen); }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setUserDropdownOpen(!userDropdownOpen);
+                                            setNotificationDropdownOpen(false);
+                                        }}
                                     >
                                         <div className="navbar__avatar" style={{ overflow: 'hidden', padding: 0 }}>
                                             {auth.user.avatar ? (
@@ -83,6 +128,9 @@ export default function Layout({ children }) {
                                                 </Link>
                                             )}
 
+                                            <Link href="/notifications" className="navbar__dropdown-item">
+                                                <Bell size={16} /> Notifications
+                                            </Link>
 
                                             <Link href="/profile" className="navbar__dropdown-item">
                                                 <User size={16} /> My Profile

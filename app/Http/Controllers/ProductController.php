@@ -11,7 +11,9 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::where('is_active', true)->with('images', 'category');
+        $query = Product::where('is_active', true)
+            ->where('approval_status', 'approved')
+            ->with('images', 'category');
 
         // Search
         if ($request->filled('search')) {
@@ -78,8 +80,16 @@ class ProductController extends Controller
         });
 
         $categories = Category::where('is_active', true)->withCount('products')->get();
-        $brands = Product::where('is_active', true)->whereNotNull('brand')->distinct()->pluck('brand');
-        $colors = Product::where('is_active', true)->whereNotNull('color')->distinct()->pluck('color');
+        $brands = Product::where('is_active', true)
+            ->where('approval_status', 'approved')
+            ->whereNotNull('brand')
+            ->distinct()
+            ->pluck('brand');
+        $colors = Product::where('is_active', true)
+            ->where('approval_status', 'approved')
+            ->whereNotNull('color')
+            ->distinct()
+            ->pluck('color');
 
         return Inertia::render('Products/Index', [
             'products' => $products,
@@ -94,6 +104,7 @@ class ProductController extends Controller
     {
         $product = Product::where('slug', $slug)
             ->where('is_active', true)
+            ->where('approval_status', 'approved')
             ->with(['images', 'category', 'seller', 'reviews.user'])
             ->firstOrFail();
 
@@ -102,6 +113,7 @@ class ProductController extends Controller
         $relatedProducts = Product::where('category_id', $product->category_id)
             ->where('id', '!=', $product->id)
             ->where('is_active', true)
+            ->where('approval_status', 'approved')
             ->with('images')
             ->limit(4)
             ->get()

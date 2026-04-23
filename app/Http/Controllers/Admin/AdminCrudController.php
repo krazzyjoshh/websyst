@@ -11,7 +11,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
-use App\Models\SellerInviteCode;
 
 class AdminCrudController extends Controller
 {
@@ -224,24 +223,15 @@ class AdminCrudController extends Controller
             ->withCount('products')
             ->get();
 
-        $inviteCodes = SellerInviteCode::with(['creator', 'user'])->orderByDesc('created_at')->get();
-
         return Inertia::render('Admin/Sellers', [
             'sellers' => $sellers,
-            'inviteCodes' => $inviteCodes,
         ]);
     }
 
     public function generateInviteCode(Request $request)
     {
-        $code = strtoupper(Str::random(10));
-        SellerInviteCode::create([
-            'code' => $code,
-            'created_by' => auth()->id(),
-            'note' => $request->note,
-        ]);
-
-        return back()->with('success', 'Invite code generated!');
+        // This endpoint is deprecated - seller registration no longer requires invitation codes
+        return back()->with('error', 'Invitation codes are no longer used for seller registration.');
     }
 
     public function verifySeller(Request $request, User $seller)
