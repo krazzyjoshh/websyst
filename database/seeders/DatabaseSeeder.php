@@ -160,6 +160,7 @@ class DatabaseSeeder extends Seeder
                 'Color' => $pData['color'] ?? 'N/A',
                 'Material' => $pData['material'] ?? 'N/A',
             ]);
+            $pData['approval_status'] = 'approved';
             $product = Product::create($pData);
             ProductImage::create([
                 'product_id' => $product->id,

@@ -1,144 +1,106 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, Head, useForm } from '@inertiajs/react';
-import { Mail, Lock, User, ArrowRight, Eye, EyeOff, Check, Phone, MapPin } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, ShieldCheck, CheckCircle } from 'lucide-react';
+import PHAddressSelect from '../../Components/PHAddressSelect';
+import axios from 'axios';
 import './Auth.scss';
 
 export default function Register() {
-    const [step, setStep] = React.useState(1); // 1: personal, 2: address, 3: OTP, 4: confirmation
-    const [otpSent, setOtpSent] = React.useState(false);
-    const [otpError, setOtpError] = React.useState('');
-    const [sendingOTP, setSendingOTP] = React.useState(false);
-    
-    const { data, setData, processing, errors } = useForm({
-        // Personal Info
+    const { data, setData, post, processing, errors, setError, clearErrors } = useForm({
         first_name: '',
         last_name: '',
         email: '',
         gender: '',
         date_of_birth: '',
-        phone_country_code: '+63',
-        phone: '',
-        alternative_email: '',
-        profile_photo: null,
-        
-        // Address
         street_address: '',
         barangay: '',
         city: '',
         province: '',
-        zip_code: '',
-        country: 'Philippines',
-        
-        // Account
         password: '',
         password_confirmation: '',
-        
-        // Agreement
         agree_terms: false,
-        
-        // OTP
-        otp: '',
     });
 
-    const [showPassword, setShowPassword] = React.useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
-    const [otpResendCooldown, setOtpResendCooldown] = React.useState(0);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    // OTP Resend cooldown timer
-    React.useEffect(() => {
-        if (otpResendCooldown > 0) {
-            const timer = setTimeout(() => setOtpResendCooldown(otpResendCooldown - 1), 1000);
-            return () => clearTimeout(timer);
+    // OTP states
+    const [otp, setOtp] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
+    const [otpVerified, setOtpVerified] = useState(false);
+    const [sendingOtp, setSendingOtp] = useState(false);
+    const [verifyingOtp, setVerifyingOtp] = useState(false);
+    const [otpError, setOtpError] = useState('');
+
+    const handleSendOtp = async () => {
+        if (!data.email) {
+            setError('email', 'Please enter your email first.');
+            return;
         }
-    }, [otpResendCooldown]);
-
-    const handleSendOTP = async (e) => {
-        e.preventDefault();
+        
+        setSendingOtp(true);
+        clearErrors('email');
         setOtpError('');
-        setSendingOTP(true);
         
         try {
-            const response = await fetch('/register/send-otp', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: JSON.stringify({
-                    first_name: data.first_name,
-                    last_name: data.last_name,
-                    email: data.email,
-                    gender: data.gender,
-                    date_of_birth: data.date_of_birth,
-                    phone: data.phone,
-                    phone_country_code: data.phone_country_code,
-                    alternative_email: data.alternative_email,
-                    street_address: data.street_address,
-                    barangay: data.barangay,
-                    city: data.city,
-                    province: data.province,
-                    zip_code: data.zip_code,
-                    country: data.country,
-                    password: data.password,
-                    password_confirmation: data.password_confirmation,
-                    agree_terms: data.agree_terms,
-                }),
+            await axios.post('/send-otp', {
+                email: data.email,
+                role: 'customer',
+                first_name: data.first_name || 'User'
             });
-
-            const result = await response.json();
-            
-            if (!response.ok) {
-                setOtpError(result.message || 'Failed to send OTP. Please try again.');
-                setSendingOTP(false);
-                return;
-            }
-
             setOtpSent(true);
-            setOtpResendCooldown(30);
-            setStep(3);
-            setSendingOTP(false);
+            alert('OTP sent to your email!');
         } catch (error) {
-            setOtpError('An error occurred. Please try again.');
-            setSendingOTP(false);
+            if (error.response?.data?.errors?.email) {
+                setError('email', error.response.data.errors.email[0]);
+            } else {
+                setOtpError(error.response?.data?.message || 'Failed to send OTP.');
+            }
+        } finally {
+            setSendingOtp(false);
         }
     };
 
-    const handleVerifyOTP = async (e) => {
-        e.preventDefault();
+    const handleVerifyOtp = async () => {
+        if (!otp || otp.length !== 6) {
+            setOtpError('Please enter a valid 6-digit OTP.');
+            return;
+        }
+
+        setVerifyingOtp(true);
         setOtpError('');
-        
-        const formData = new FormData();
-        Object.keys(data).forEach(key => {
-            formData.append(key, data[key]);
-        });
 
         try {
-            const response = await fetch('/register/verify-otp', {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: formData,
+            await axios.post('/verify-otp', {
+                email: data.email,
+                otp: otp
             });
-
-            const result = await response.json();
-            
-            if (!response.ok) {
-                setOtpError(result.message || 'Failed to verify OTP. Please try again.');
-                return;
-            }
-
-            if (result.redirect) {
-                window.location.href = result.redirect;
-            }
+            setOtpVerified(true);
+            setOtpError('');
+            alert('Email verified successfully!');
         } catch (error) {
-            setOtpError('An error occurred. Please try again.');
+            setOtpError(error.response?.data?.message || 'Invalid or expired OTP.');
+        } finally {
+            setVerifyingOtp(false);
         }
     };
 
-    const isStep1Valid = data.first_name && data.last_name && data.email && data.gender && data.date_of_birth;
-    const isStep2Valid = data.street_address && data.barangay && data.city && data.province && data.zip_code && data.country;
-    const isStep3Valid = data.password && data.password === data.password_confirmation && data.phone && data.agree_terms;
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!otpVerified) {
+            alert('Please verify your email with the OTP first.');
+            return;
+        }
+        post('/register');
+    };
+
+    const isFormValid = 
+        data.first_name && data.last_name && data.gender && data.date_of_birth &&
+        data.email && otpVerified && data.street_address && data.barangay && data.city &&
+        data.province && data.password && 
+        data.password === data.password_confirmation && data.agree_terms;
+
+
 
     return (
         <div className="auth-page">
@@ -148,72 +110,136 @@ export default function Register() {
                 <div className="auth-page__orb auth-page__orb--2" />
             </div>
 
-            <div className="auth-card glass-card" style={{ maxWidth: 600 }}>
+            <div className="auth-card glass-card" style={{ maxWidth: 800, margin: '40px auto' }}>
                 <div className="auth-card__header">
                     <Link href="/" className="auth-card__logo">
                         <span className="auth-card__logo-text">SHOP</span>
                         <span className="auth-card__logo-accent">HUB</span>
                     </Link>
                     <h1 className="auth-card__title">Create Account</h1>
-                    <p className="auth-card__subtitle">
-                        Step {step === 4 ? 3 : step} of {step === 4 ? 3 : 3}
-                    </p>
+                    <p className="auth-card__subtitle">Join us as a Customer to start shopping.</p>
+                    <div style={{ marginTop: 12 }}>
+                        <Link href="/seller/register" style={{ fontSize: 13, color: '#8B5CF6', textDecoration: 'none', fontWeight: 600 }}>
+                            Want to sell? Register as a Seller instead →
+                        </Link>
+                    </div>
                 </div>
 
-                <form onSubmit={step === 3 ? handleVerifyOTP : handleSendOTP} className="auth-card__form">
-                    {step === 1 && (
-                        <>
-                            <h3 style={{ marginBottom: 20, fontSize: 18, fontWeight: 600 }}>Personal Information</h3>
-                            
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                <div className="form-group">
-                                    <label>First Name *</label>
-                                    <div className="input-icon-wrapper">
-                                        <User size={18} className="input-icon" />
-                                        <input
-                                            type="text"
-                                            className={`form-input form-input--icon ${errors.first_name ? 'form-input--error' : ''}`}
-                                            placeholder="John"
-                                            value={data.first_name}
-                                            onChange={(e) => setData('first_name', e.target.value)}
-                                        />
-                                    </div>
-                                    {errors.first_name && <span className="form-error">{errors.first_name}</span>}
-                                </div>
+                <form onSubmit={handleSubmit} className="auth-card__form" style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                    
+                    {/* SECTION: Email & Contact */}
+                    <div>
+                        <h3 style={{ fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 16, borderBottom: '1px solid #F3F4F6', paddingBottom: 8 }}>
+                            Contact Information
+                        </h3>
 
-                                <div className="form-group">
-                                    <label>Last Name *</label>
-                                    <div className="input-icon-wrapper">
-                                        <User size={18} className="input-icon" />
-                                        <input
-                                            type="text"
-                                            className={`form-input form-input--icon ${errors.last_name ? 'form-input--error' : ''}`}
-                                            placeholder="Doe"
-                                            value={data.last_name}
-                                            onChange={(e) => setData('last_name', e.target.value)}
-                                        />
-                                    </div>
-                                    {errors.last_name && <span className="form-error">{errors.last_name}</span>}
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label>Email Address *</label>
-                                <div className="input-icon-wrapper">
+                        <div className="form-group" style={{ marginBottom: 12 }}>
+                            <label>Email Address *</label>
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                <div className="input-icon-wrapper" style={{ flex: 1 }}>
                                     <Mail size={18} className="input-icon" />
                                     <input
                                         type="email"
                                         className={`form-input form-input--icon ${errors.email ? 'form-input--error' : ''}`}
-                                        placeholder="you@example.com"
+                                        placeholder="your@email.com"
                                         value={data.email}
-                                        onChange={(e) => setData('email', e.target.value)}
+                                        onChange={(e) => {
+                                            setData('email', e.target.value);
+                                            setOtpSent(false);
+                                            setOtpVerified(false);
+                                        }}
+                                        disabled={otpVerified}
                                     />
                                 </div>
-                                {errors.email && <span className="form-error">{errors.email}</span>}
+                                {!otpVerified && (
+                                    <button
+                                        type="button"
+                                        onClick={handleSendOtp}
+                                        disabled={sendingOtp || !data.email}
+                                        className="btn-primary"
+                                        style={{ height: '42px', padding: '0 16px', whiteSpace: 'nowrap' }}
+                                    >
+                                        {sendingOtp ? 'Sending...' : (otpSent ? 'Resend OTP' : 'Send OTP')}
+                                    </button>
+                                )}
+                                {otpVerified && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#10B981', fontWeight: 600 }}>
+                                        <CheckCircle size={20} /> Verified
+                                    </div>
+                                )}
+                            </div>
+                            {errors.email && <span className="form-error">{errors.email}</span>}
+                        </div>
+
+                        {otpSent && !otpVerified && (
+                            <div className="form-group" style={{ marginBottom: 12, padding: '16px', background: '#F9FAFB', borderRadius: '8px', border: '1px solid #E5E7EB' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <ShieldCheck size={16} style={{ color: '#8B5CF6' }} />
+                                    Enter OTP Code *
+                                </label>
+                                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                                    <input
+                                        type="text"
+                                        maxLength={6}
+                                        className="form-input"
+                                        placeholder="123456"
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                                        style={{ flex: 1, letterSpacing: '4px', fontSize: '16px', textAlign: 'center', fontWeight: 'bold' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleVerifyOtp}
+                                        disabled={verifyingOtp || otp.length !== 6}
+                                        className="btn-primary"
+                                        style={{ height: '42px', padding: '0 24px', background: '#8B5CF6' }}
+                                    >
+                                        {verifyingOtp ? 'Verifying...' : 'Verify'}
+                                    </button>
+                                </div>
+                                {otpError && <span className="form-error" style={{ display: 'block', marginTop: 8 }}>{otpError}</span>}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* SECTION: Personal Information */}
+                    <div>
+                        <h3 style={{ fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 16, borderBottom: '1px solid #F3F4F6', paddingBottom: 8 }}>
+                            Personal Information
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                            <div className="form-group">
+                                <label>First Name *</label>
+                                <div className="input-icon-wrapper">
+                                    <User size={18} className="input-icon" />
+                                    <input
+                                        type="text"
+                                        className={`form-input form-input--icon ${errors.first_name ? 'form-input--error' : ''}`}
+                                        placeholder="First Name"
+                                        value={data.first_name}
+                                        onChange={(e) => setData('first_name', e.target.value)}
+                                    />
+                                </div>
+                                {errors.first_name && <span className="form-error">{errors.first_name}</span>}
                             </div>
 
                             <div className="form-group">
-                                <label>Gender *</label>
+                                <label>Last Name *</label>
+                                <div className="input-icon-wrapper">
+                                    <User size={18} className="input-icon" />
+                                    <input
+                                        type="text"
+                                        className={`form-input form-input--icon ${errors.last_name ? 'form-input--error' : ''}`}
+                                        placeholder="Last Name"
+                                        value={data.last_name}
+                                        onChange={(e) => setData('last_name', e.target.value)}
+                                    />
+                                </div>
+                                {errors.last_name && <span className="form-error">{errors.last_name}</span>}
+                            </div>
+
+                            <div className="form-group">
+                                <label>Sex / Gender *</label>
                                 <select
                                     className={`form-input ${errors.gender ? 'form-input--error' : ''}`}
                                     value={data.gender}
@@ -238,173 +264,35 @@ export default function Register() {
                                 />
                                 {errors.date_of_birth && <span className="form-error">{errors.date_of_birth}</span>}
                             </div>
+                        </div>
+                    </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 16 }}>
-                                <div className="form-group">
-                                    <label>Country Code *</label>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        value={data.phone_country_code}
-                                        onChange={(e) => setData('phone_country_code', e.target.value)}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>Mobile Number *</label>
-                                    <div className="input-icon-wrapper">
-                                        <Phone size={18} className="input-icon" />
-                                        <input
-                                            type="tel"
-                                            className={`form-input form-input--icon ${errors.phone ? 'form-input--error' : ''}`}
-                                            placeholder="9123456789"
-                                            value={data.phone}
-                                            onChange={(e) => setData('phone', e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            {errors.phone && <span className="form-error">{errors.phone}</span>}
+                    {/* SECTION: Address Information */}
+                    <div>
+                        <h3 style={{ fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 16, borderBottom: '1px solid #F3F4F6', paddingBottom: 8 }}>
+                            Address Information
+                        </h3>
+                        <div className="form-group" style={{ marginBottom: 16 }}>
+                            <label>Street Address / House Number *</label>
+                            <input
+                                type="text"
+                                className={`form-input ${errors.street_address ? 'form-input--error' : ''}`}
+                                placeholder="House No., Street Name, Subdivision"
+                                value={data.street_address}
+                                onChange={(e) => setData('street_address', e.target.value)}
+                            />
+                            {errors.street_address && <span className="form-error">{errors.street_address}</span>}
+                        </div>
+                        
+                        <PHAddressSelect data={data} setData={setData} errors={errors} />
+                    </div>
 
-                            <div className="form-group">
-                                <label>Alternative Email</label>
-                                <div className="input-icon-wrapper">
-                                    <Mail size={18} className="input-icon" />
-                                    <input
-                                        type="email"
-                                        className="form-input form-input--icon"
-                                        placeholder="alternative@example.com"
-                                        value={data.alternative_email}
-                                        onChange={(e) => setData('alternative_email', e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            <button 
-                                type="button" 
-                                onClick={() => setStep(2)}
-                                disabled={!isStep1Valid}
-                                className="btn-primary auth-card__submit"
-                            >
-                                Next: Address Information
-                                <ArrowRight size={18} />
-                            </button>
-                        </>
-                    )}
-
-                    {step === 2 && (
-                        <>
-                            <h3 style={{ marginBottom: 20, fontSize: 18, fontWeight: 600 }}>Address Information</h3>
-                            
-                            <div className="form-group">
-                                <label>Street Address *</label>
-                                <div className="input-icon-wrapper">
-                                    <MapPin size={18} className="input-icon" />
-                                    <input
-                                        type="text"
-                                        className={`form-input form-input--icon ${errors.street_address ? 'form-input--error' : ''}`}
-                                        placeholder="123 Main Street"
-                                        value={data.street_address}
-                                        onChange={(e) => setData('street_address', e.target.value)}
-                                    />
-                                </div>
-                                {errors.street_address && <span className="form-error">{errors.street_address}</span>}
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                <div className="form-group">
-                                    <label>Barangay/District *</label>
-                                    <input
-                                        type="text"
-                                        className={`form-input ${errors.barangay ? 'form-input--error' : ''}`}
-                                        placeholder="Barangay"
-                                        value={data.barangay}
-                                        onChange={(e) => setData('barangay', e.target.value)}
-                                    />
-                                    {errors.barangay && <span className="form-error">{errors.barangay}</span>}
-                                </div>
-
-                                <div className="form-group">
-                                    <label>City/Municipality *</label>
-                                    <input
-                                        type="text"
-                                        className={`form-input ${errors.city ? 'form-input--error' : ''}`}
-                                        placeholder="City"
-                                        value={data.city}
-                                        onChange={(e) => setData('city', e.target.value)}
-                                    />
-                                    {errors.city && <span className="form-error">{errors.city}</span>}
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                <div className="form-group">
-                                    <label>Province/State *</label>
-                                    <input
-                                        type="text"
-                                        className={`form-input ${errors.province ? 'form-input--error' : ''}`}
-                                        placeholder="Province"
-                                        value={data.province}
-                                        onChange={(e) => setData('province', e.target.value)}
-                                    />
-                                    {errors.province && <span className="form-error">{errors.province}</span>}
-                                </div>
-
-                                <div className="form-group">
-                                    <label>Postal/Zip Code *</label>
-                                    <input
-                                        type="text"
-                                        className={`form-input ${errors.zip_code ? 'form-input--error' : ''}`}
-                                        placeholder="12345"
-                                        value={data.zip_code}
-                                        onChange={(e) => setData('zip_code', e.target.value)}
-                                    />
-                                    {errors.zip_code && <span className="form-error">{errors.zip_code}</span>}
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label>Country *</label>
-                                <select
-                                    className={`form-input ${errors.country ? 'form-input--error' : ''}`}
-                                    value={data.country}
-                                    onChange={(e) => setData('country', e.target.value)}
-                                >
-                                    <option value="Philippines">Philippines</option>
-                                    <option value="Singapore">Singapore</option>
-                                    <option value="Malaysia">Malaysia</option>
-                                    <option value="Thailand">Thailand</option>
-                                    <option value="Vietnam">Vietnam</option>
-                                    <option value="Indonesia">Indonesia</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                                {errors.country && <span className="form-error">{errors.country}</span>}
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <button 
-                                    type="button" 
-                                    onClick={() => setStep(1)}
-                                    className="btn-secondary"
-                                    style={{ background: '#F3F4F6', color: '#374151' }}
-                                >
-                                    Back
-                                </button>
-                                <button 
-                                    type="button" 
-                                    onClick={() => setStep(3)}
-                                    disabled={!isStep2Valid}
-                                    className="btn-primary"
-                                >
-                                    Next: Security
-                                </button>
-                            </div>
-                        </>
-                    )}
-
-                    {step === 3 && (
-                        <>
-                            <h3 style={{ marginBottom: 20, fontSize: 18, fontWeight: 600 }}>Password & Agreement</h3>
-                            
+                    {/* SECTION: Security */}
+                    <div>
+                        <h3 style={{ fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 16, borderBottom: '1px solid #F3F4F6', paddingBottom: 8 }}>
+                            Account Security
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                             <div className="form-group">
                                 <label>Password *</label>
                                 <div className="input-icon-wrapper">
@@ -430,7 +318,7 @@ export default function Register() {
                                     <input
                                         type={showConfirmPassword ? 'text' : 'password'}
                                         className={`form-input form-input--icon ${data.password !== data.password_confirmation && data.password_confirmation ? 'form-input--error' : ''}`}
-                                        placeholder="Confirm your password"
+                                        placeholder="Confirm password"
                                         value={data.password_confirmation}
                                         onChange={(e) => setData('password_confirmation', e.target.value)}
                                     />
@@ -438,94 +326,32 @@ export default function Register() {
                                         {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                     </button>
                                 </div>
-                                {data.password !== data.password_confirmation && data.password_confirmation && (
-                                    <span className="form-error">Passwords do not match</span>
-                                )}
+                                {errors.password_confirmation && <span className="form-error">{errors.password_confirmation}</span>}
                             </div>
+                        </div>
 
-                            <div className="form-group" style={{ marginTop: 20 }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={data.agree_terms}
-                                        onChange={(e) => setData('agree_terms', e.target.checked)}
-                                        style={{ width: 18, height: 18, cursor: 'pointer' }}
-                                    />
-                                    <span>I agree to Terms & Conditions and Privacy Policy *</span>
-                                </label>
-                                {errors.agree_terms && <span className="form-error">{errors.agree_terms}</span>}
-                            </div>
+                        <div className="form-group" style={{ marginTop: 24 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={data.agree_terms}
+                                    onChange={(e) => setData('agree_terms', e.target.checked)}
+                                    style={{ width: 18, height: 18, cursor: 'pointer' }}
+                                />
+                                <span>I agree to the Terms & Conditions and Privacy Policy *</span>
+                            </label>
+                            {errors.agree_terms && <span className="form-error">{errors.agree_terms}</span>}
+                        </div>
+                    </div>
 
-                            <button 
-                                type="button" 
-                                onClick={() => setStep(2)}
-                                className="btn-secondary"
-                                style={{ background: '#F3F4F6', color: '#374151', marginTop: 20 }}
-                            >
-                                Back
-                            </button>
-
-                            <button 
-                                type="submit" 
-                                disabled={!isStep3Valid || sendingOTP || processing}
-                                className="btn-primary auth-card__submit"
-                            >
-                                {sendingOTP || processing ? 'Sending Verification Code...' : 'Send Verification Code'}
-                                <ArrowRight size={18} />
-                            </button>
-                        </>
-                    )}
-
-                    {step === 3 && otpSent && (
-                        <>
-                            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                                <div style={{ background: '#E0E7FF', width: 56, height: 56, borderRadius: '50%', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Check size={28} style={{ color: '#4F46E5' }} />
-                                </div>
-                                <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1F2937', marginBottom: 8 }}>Check Your Email</h2>
-                                <p style={{ color: '#6B7280', fontSize: 14 }}>We sent a verification code to {data.email}</p>
-                            </div>
-
-                            <div className="form-group">
-                                <label>Verification Code *</label>
-                                <div className="input-icon-wrapper">
-                                    <Lock size={18} className="input-icon" />
-                                    <input
-                                        type="text"
-                                        className={`form-input form-input--icon ${errors.otp ? 'form-input--error' : ''} ${otpError ? 'form-input--error' : ''}`}
-                                        placeholder="Enter 6-digit code"
-                                        maxLength="6"
-                                        value={data.otp}
-                                        onChange={(e) => setData('otp', e.target.value.replace(/\D/g, ''))}
-                                    />
-                                </div>
-                                {(errors.otp || otpError) && <span className="form-error">{errors.otp || otpError}</span>}
-                            </div>
-
-                            <button type="submit" className="btn-primary auth-card__submit" disabled={processing || data.otp.length !== 6}>
-                                {processing ? 'Verifying...' : 'Verify & Create Account'}
-                                <ArrowRight size={18} />
-                            </button>
-
-                            <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#6B7280' }}>
-                                Didn't receive the code?{' '}
-                                {otpResendCooldown > 0 ? (
-                                    <span>Try again in {otpResendCooldown}s</span>
-                                ) : (
-                                    <button 
-                                        type="button" 
-                                        onClick={() => { 
-                                            setOtpSent(false); 
-                                            setData('otp', '');
-                                        }}
-                                        style={{ color: '#4F46E5', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
-                                    >
-                                        Resend Code
-                                    </button>
-                                )}
-                            </p>
-                        </>
-                    )}
+                    <button 
+                        type="submit" 
+                        disabled={!isFormValid || processing}
+                        className="btn-primary auth-card__submit"
+                        style={{ padding: '16px', fontSize: 16 }}
+                    >
+                        {processing ? 'Creating Account...' : 'Create Account'}
+                    </button>
                 </form>
 
                 <p className="auth-card__footer">
@@ -533,112 +359,6 @@ export default function Register() {
                     <Link href="/login" style={{ color: '#4F46E5', fontWeight: 600 }}>
                         Sign In
                     </Link>
-                </p>
-            </div>
-        </div>
-    );
-}
-                                    <Mail size={18} className="input-icon" />
-                                    <input
-                                        type="email"
-                                        className={`form-input form-input--icon ${errors.email ? 'form-input--error' : ''}`}
-                                        placeholder="you@example.com"
-                                        value={data.email}
-                                        onChange={(e) => setData('email', e.target.value)}
-                                    />
-                                </div>
-                                {errors.email && <span className="form-error">{errors.email}</span>}
-                            </div>
-
-                            <div className="form-group">
-                                <label>Password</label>
-                                <div className="input-icon-wrapper">
-                                    <Lock size={18} className="input-icon" />
-                                    <input
-                                        type={showPassword ? 'text' : 'password'}
-                                        className={`form-input form-input--icon ${errors.password ? 'form-input--error' : ''}`}
-                                        placeholder="Min 8 characters"
-                                        value={data.password}
-                                        onChange={(e) => setData('password', e.target.value)}
-                                    />
-                                    <button type="button" className="input-toggle" onClick={() => setShowPassword(!showPassword)}>
-                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                    </button>
-                                </div>
-                                {errors.password && <span className="form-error">{errors.password}</span>}
-                            </div>
-
-                            <div className="form-group">
-                                <label>Confirm Password</label>
-                                <div className="input-icon-wrapper">
-                                    <Lock size={18} className="input-icon" />
-                                    <input
-                                        type={showConfirmPassword ? 'text' : 'password'}
-                                        className="form-input form-input--icon"
-                                        placeholder="Confirm your password"
-                                        value={data.password_confirmation}
-                                        onChange={(e) => setData('password_confirmation', e.target.value)}
-                                    />
-                                    <button type="button" className="input-toggle" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <button type="submit" className="btn-primary auth-card__submit" disabled={processing}>
-                                {processing ? 'Sending OTP...' : 'Send Verification Code'}
-                                <ArrowRight size={18} />
-                            </button>
-                        </>
-                    ) : (
-                        // Step 2: Verify OTP
-                        <>
-                            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                                <div style={{ background: '#E0E7FF', width: 56, height: 56, borderRadius: '50%', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Check size={28} style={{ color: '#4F46E5' }} />
-                                </div>
-                                <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1F2937', marginBottom: 8 }}>Check Your Email</h2>
-                                <p style={{ color: '#6B7280', fontSize: 14 }}>We sent a verification code to {data.email}</p>
-                            </div>
-
-                            <div className="form-group">
-                                <label>Verification Code</label>
-                                <div className="input-icon-wrapper">
-                                    <Lock size={18} className="input-icon" />
-                                    <input
-                                        type="text"
-                                        className={`form-input form-input--icon ${errors.otp ? 'form-input--error' : ''} ${otpError ? 'form-input--error' : ''}`}
-                                        placeholder="Enter 6-digit code"
-                                        maxLength="6"
-                                        value={data.otp}
-                                        onChange={(e) => setData('otp', e.target.value.replace(/\D/g, ''))}
-                                    />
-                                </div>
-                                {(errors.otp || otpError) && <span className="form-error">{errors.otp || otpError}</span>}
-                            </div>
-
-                            <button type="submit" className="btn-primary auth-card__submit" disabled={processing || data.otp.length !== 6}>
-                                {processing ? 'Verifying...' : 'Verify & Create Account'}
-                                <ArrowRight size={18} />
-                            </button>
-
-                            <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#6B7280' }}>
-                                Didn't receive the code?{' '}
-                                <button 
-                                    type="button" 
-                                    onClick={() => { setStep(1); setOtpSent(false); }}
-                                    style={{ color: '#4F46E5', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
-                                >
-                                    Try again
-                                </button>
-                            </p>
-                        </>
-                    )}
-                </form>
-
-                <p className="auth-card__footer">
-                    Already have an account?{' '}
-                    <Link href="/login" className="auth-card__link">Sign In</Link>
                 </p>
             </div>
         </div>

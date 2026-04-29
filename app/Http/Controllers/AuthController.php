@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use App\Mail\VerificationCodeMail;
+use App\Mail\OtpVerificationMail;
+use App\Models\OtpVerification;
 use Illuminate\Support\Facades\DB;
 
 class AuthController extends Controller
@@ -50,133 +52,123 @@ class AuthController extends Controller
         return Inertia::render('Auth/Register');
     }
 
-    public function register(Request $request)
-    {
-        // This endpoint is deprecated - use /register/send-otp and /register/verify-otp instead
-        return response()->json(['message' => 'Please use the OTP-based registration flow.'], 400);
-    }
-
-    public function sendRegisterOTP(Request $request)
+    public function sendOtp(Request $request)
     {
         $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255',
-            'phone' => 'required|string|max:20',
-            'phone_country_code' => 'required|string|max:10',
-            'date_of_birth' => 'required|date|before:today',
-            'gender' => 'required|in:male,female,other,prefer_not_to_say',
-            'street_address' => 'required|string',
-            'barangay' => 'required|string',
-            'city' => 'required|string',
-            'province' => 'required|string',
-            'zip_code' => 'required|string',
-            'country' => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
-            'agree_terms' => 'required|accepted',
+            'email' => 'required|email|max:255',
+            'role' => 'required|in:customer,seller',
+            'first_name' => 'nullable|string'
         ]);
 
-        // Check if email already exists
         if (User::where('email', $request->email)->exists()) {
             return response()->json(['message' => 'This email is already registered.'], 422);
         }
 
-        // Generate 6-digit OTP
         $code = str_pad(mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        // Delete any existing verification codes for this email
-        DB::table('email_verification_codes')->where('email', $request->email)->delete();
+        OtpVerification::updateOrCreate(
+            ['email' => $request->email],
+            [
+                'otp' => $code,
+                'role' => $request->role,
+                'is_verified' => false,
+                'expires_at' => now()->addMinutes(5)
+            ]
+        );
 
-        // Store the OTP code
-        DB::table('email_verification_codes')->insert([
-            'email' => $request->email,
-            'code' => $code,
-            'expires_at' => now()->addMinutes(5),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        // Send OTP to email
-        Mail::to($request->email)->send(new VerificationCodeMail($code, 'customer'));
+        $name = $request->first_name ?? 'User';
+        Mail::to($request->email)->send(new OtpVerificationMail($code, $name));
 
         return response()->json(['message' => 'OTP sent to your email.']);
     }
 
-    public function verifyRegisterOTP(Request $request)
+    public function verifyOtp(Request $request)
     {
         $request->validate([
             'email' => 'required|email',
             'otp' => 'required|string|size:6',
+        ]);
+
+        $verification = OtpVerification::where('email', $request->email)->first();
+
+        if (!$verification) {
+            return response()->json(['message' => 'OTP record not found.'], 404);
+        }
+
+        if (!$verification->isValid($request->otp)) {
+            return response()->json(['message' => 'Invalid or expired OTP code.'], 422);
+        }
+
+        $verification->update(['is_verified' => true]);
+
+        return response()->json(['message' => 'OTP verified successfully.']);
+    }
+
+    public function register(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|unique:users',
             'first_name' => 'required|string',
             'last_name' => 'required|string',
-            'phone' => 'required|string|max:20',
-            'phone_country_code' => 'required|string|max:10',
-            'date_of_birth' => 'required|date',
             'gender' => 'required|in:male,female,other,prefer_not_to_say',
+            'date_of_birth' => 'required|date',
             'street_address' => 'required|string',
             'barangay' => 'required|string',
             'city' => 'required|string',
             'province' => 'required|string',
-            'zip_code' => 'required|string',
-            'country' => 'required|string',
-            'password' => 'required|string|min:8',
-            'password_confirmation' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+            'role' => 'nullable|in:customer,seller',
+            // Seller specific
+            'store_name' => 'nullable|string|required_if:role,seller',
+            'store_description' => 'nullable|string',
         ]);
 
-        // Verify OTP
-        $verification = DB::table('email_verification_codes')
-            ->where('email', $request->email)
-            ->where('code', $request->otp)
+        $role = $request->role ?? 'customer';
+
+        $verification = OtpVerification::where('email', $request->email)
+            ->where('is_verified', true)
             ->first();
 
         if (!$verification) {
-            return response()->json(['message' => 'Invalid verification code.'], 422);
+            return back()->withErrors(['email' => 'Please verify your email with OTP first before registering.']);
         }
 
-        if (now()->isAfter($verification->expires_at)) {
-            return response()->json(['message' => 'Verification code has expired.'], 422);
-        }
-
-        if ($verification->attempts >= 5) {
-            return response()->json(['message' => 'Too many failed attempts. Please request a new code.'], 422);
-        }
-
-        // Check if email already exists
-        if (User::where('email', $request->email)->exists()) {
-            return response()->json(['message' => 'This email is already registered.'], 422);
-        }
-
-        // Create user with all details
         $user = User::create([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
             'name' => "{$request->first_name} {$request->last_name}",
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'phone' => $request->phone,
-            'phone_country_code' => $request->phone_country_code,
             'date_of_birth' => $request->date_of_birth,
             'gender' => $request->gender,
             'street_address' => $request->street_address,
             'barangay' => $request->barangay,
             'city' => $request->city,
             'province' => $request->province,
-            'zip_code' => $request->zip_code,
-            'country' => $request->country,
-            'role' => 'user',
-            'account_type' => 'buyer',
+            'role' => $role === 'seller' ? 'seller' : 'user',
+            'account_type' => $role === 'seller' ? 'seller' : 'buyer',
             'email_verified' => true,
-            'otp_verified_at' => now(),
         ]);
 
-        // Mark OTP as verified
-        DB::table('email_verification_codes')
-            ->where('email', $request->email)
-            ->update(['verified_at' => now()]);
+        if ($role === 'seller') {
+            \App\Models\SellerProfile::create([
+                'user_id' => $user->id,
+                'shop_name' => $request->store_name,
+                'shop_description' => $request->store_description,
+                'is_verified' => false,
+            ]);
+        }
+
+        $verification->delete();
 
         Auth::login($user);
+        $request->session()->regenerate();
 
-        return response()->json(['message' => 'Registration successful!', 'redirect' => route('home')]);
+        if ($role === 'seller') {
+            return redirect()->route('seller.dashboard')->with('success', 'Seller account created!');
+        }
+
+        return redirect()->route('home')->with('success', 'Registration successful!');
     }
 
     public function showSellerLogin()
@@ -207,148 +199,6 @@ class AuthController extends Controller
     public function showSellerRegister()
     {
         return Inertia::render('Auth/SellerRegister');
-    }
-
-    public function sellerRegister(Request $request)
-    {
-        // This endpoint is deprecated - use /seller/register/send-otp and /seller/register/verify-otp instead
-        return response()->json(['message' => 'Please use the OTP-based registration flow.'], 400);
-    }
-
-    public function sendSellerRegisterOTP(Request $request)
-    {
-        $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255',
-            'phone' => 'required|string|max:20',
-            'phone_country_code' => 'required|string|max:10',
-            'date_of_birth' => 'required|date|before:today',
-            'gender' => 'required|in:male,female,other,prefer_not_to_say',
-            'street_address' => 'required|string',
-            'barangay' => 'required|string',
-            'city' => 'required|string',
-            'province' => 'required|string',
-            'zip_code' => 'required|string',
-            'country' => 'required|string',
-            'store_name' => 'required|string|max:255',
-            'store_description' => 'nullable|string',
-            'password' => 'required|string|min:8|confirmed',
-            'agree_terms' => 'required|accepted',
-        ]);
-
-        // Check if email already exists
-        if (User::where('email', $request->email)->exists()) {
-            return response()->json(['message' => 'This email is already registered.'], 422);
-        }
-
-        // Generate 6-digit OTP
-        $code = str_pad(mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
-
-        // Delete any existing verification codes for this email
-        DB::table('email_verification_codes')->where('email', $request->email)->delete();
-
-        // Store the OTP code
-        DB::table('email_verification_codes')->insert([
-            'email' => $request->email,
-            'code' => $code,
-            'expires_at' => now()->addMinutes(5),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        // Send OTP to email
-        Mail::to($request->email)->send(new VerificationCodeMail($code, 'seller'));
-
-        return response()->json(['message' => 'OTP sent to your email.']);
-    }
-
-    public function verifySellerRegisterOTP(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'otp' => 'required|string|size:6',
-            'first_name' => 'required|string',
-            'last_name' => 'required|string',
-            'phone' => 'required|string|max:20',
-            'phone_country_code' => 'required|string|max:10',
-            'date_of_birth' => 'required|date',
-            'gender' => 'required|in:male,female,other,prefer_not_to_say',
-            'street_address' => 'required|string',
-            'barangay' => 'required|string',
-            'city' => 'required|string',
-            'province' => 'required|string',
-            'zip_code' => 'required|string',
-            'country' => 'required|string',
-            'store_name' => 'required|string',
-            'store_description' => 'nullable|string',
-            'password' => 'required|string|min:8',
-            'password_confirmation' => 'required|string',
-        ]);
-
-        // Verify OTP
-        $verification = DB::table('email_verification_codes')
-            ->where('email', $request->email)
-            ->where('code', $request->otp)
-            ->first();
-
-        if (!$verification) {
-            return response()->json(['message' => 'Invalid verification code.'], 422);
-        }
-
-        if (now()->isAfter($verification->expires_at)) {
-            return response()->json(['message' => 'Verification code has expired.'], 422);
-        }
-
-        if ($verification->attempts >= 5) {
-            return response()->json(['message' => 'Too many failed attempts. Please request a new code.'], 422);
-        }
-
-        // Check if email already exists
-        if (User::where('email', $request->email)->exists()) {
-            return response()->json(['message' => 'This email is already registered.'], 422);
-        }
-
-        // Create seller user - pending admin verification
-        $user = User::create([
-            'first_name' => $request->first_name,
-            'last_name' => $request->last_name,
-            'name' => "{$request->first_name} {$request->last_name}",
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'phone' => $request->phone,
-            'phone_country_code' => $request->phone_country_code,
-            'date_of_birth' => $request->date_of_birth,
-            'gender' => $request->gender,
-            'street_address' => $request->street_address,
-            'barangay' => $request->barangay,
-            'city' => $request->city,
-            'province' => $request->province,
-            'zip_code' => $request->zip_code,
-            'country' => $request->country,
-            'role' => 'seller',
-            'account_type' => 'seller',
-            'email_verified' => true,
-            'otp_verified_at' => now(),
-        ]);
-
-        // Create seller profile - pending admin approval
-        \App\Models\SellerProfile::create([
-            'user_id' => $user->id,
-            'shop_name' => $request->store_name,
-            'shop_description' => $request->store_description,
-            'is_verified' => false,
-        ]);
-
-        // Mark OTP as verified
-        DB::table('email_verification_codes')
-            ->where('email', $request->email)
-            ->update(['verified_at' => now()]);
-
-        return response()->json([
-            'message' => 'Account created! Your seller application is pending admin review.',
-            'redirect' => route('seller.login')
-        ]);
     }
 
     public function showAdminLogin()

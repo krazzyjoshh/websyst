@@ -12,6 +12,37 @@ use Illuminate\Support\Facades\Auth;
 class ProductApprovalController extends Controller
 {
     /**
+     * Show the product approvals page (Inertia)
+     */
+    public function index()
+    {
+        // Verify user is admin
+        if (\Illuminate\Support\Facades\Auth::user()->role !== 'admin') {
+            return redirect('/');
+        }
+
+        $pendingProducts = ProductApproval::where('status', 'pending')
+            ->with(['product.category', 'product.images', 'seller'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $approvedProducts = ProductApproval::where('status', 'approved')
+            ->with(['product.category', 'product.images', 'seller'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        $rejectedProducts = ProductApproval::where('status', 'rejected')
+            ->with(['product.category', 'product.images', 'seller'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        return \Inertia\Inertia::render('Admin/ProductApprovals', [
+            'pendingProducts' => $pendingProducts,
+            'approvedProducts' => $approvedProducts,
+            'rejectedProducts' => $rejectedProducts,
+        ]);
+    }
+    /**
      * Get all pending product approvals
      */
     public function pendingApprovals()
@@ -94,10 +125,7 @@ class ProductApprovalController extends Controller
             ],
         ]);
 
-        return response()->json([
-            'message' => 'Product approved successfully',
-            'approval' => $approval,
-        ]);
+        return redirect()->back()->with('success', 'Product approved successfully');
     }
 
     /**
@@ -133,10 +161,7 @@ class ProductApprovalController extends Controller
             ],
         ]);
 
-        return response()->json([
-            'message' => 'Product rejected successfully',
-            'approval' => $approval,
-        ]);
+        return redirect()->back()->with('success', 'Product rejected successfully');
     }
 
     /**

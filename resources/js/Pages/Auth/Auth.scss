@@ -185,33 +185,40 @@
 // ─── Form helpers ───
 .input-icon-wrapper {
   position: relative;
+  display: flex;
+  align-items: center;
 
   .input-icon {
     position: absolute;
-    left: 16px;
+    left: 14px;
     top: 50%;
     transform: translateY(-50%);
-    color: $text-muted;
+    color: #6B7280;
     pointer-events: none;
-    z-index: 1;
+    z-index: 2;
+    width: 18px;
+    height: 18px;
   }
 
   .input-toggle {
     position: absolute;
-    right: 16px;
+    right: 14px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
     border: none;
-    color: $text-muted;
+    color: #6B7280;
     cursor: pointer;
-    z-index: 1;
-    &:hover { color: $text-secondary; }
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    &:hover { color: #374151; }
   }
 }
 
 .form-input--icon {
-  padding-left: 48px;
+  padding-left: 44px !important;
 }
 
 .form-input--error {

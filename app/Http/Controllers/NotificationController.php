@@ -6,22 +6,47 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Validator;
+use Inertia\Inertia;
 
 class NotificationController extends Controller
 {
     /**
-     * Get all notifications for the authenticated user
+     * Show notifications page (Inertia)
      */
     public function index()
     {
         $user = Auth::user();
         
         $notifications = $user->receivedNotifications()
+            ->with('sender')
             ->orderByDesc('created_at')
             ->paginate(20);
 
-        return response()->json($notifications);
+        return Inertia::render('Notifications', [
+            'notifications' => $notifications,
+            'unreadCount' => $user->unreadNotifications()->count(),
+        ]);
+    }
+
+    /**
+     * API: Get all notifications as JSON (for NotificationProvider polling)
+     */
+    public function apiIndex()
+    {
+        $user = Auth::user();
+        
+        $notifications = $user->receivedNotifications()
+            ->with('sender')
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
+        $unreadCount = $user->unreadNotifications()->count();
+
+        return response()->json([
+            'notifications' => $notifications,
+            'unread_count' => $unreadCount,
+        ]);
     }
 
     /**
@@ -36,11 +61,24 @@ class NotificationController extends Controller
     }
 
     /**
-     * Mark a notification as read
+     * Mark a notification as read (Inertia - redirect back)
      */
     public function markAsRead(Notification $notification)
     {
-        // Check if user has permission to read this notification
+        if ($notification->recipient_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $notification->markAsRead();
+
+        return back();
+    }
+
+    /**
+     * API: Mark a notification as read (JSON response for NotificationProvider)
+     */
+    public function apiMarkAsRead(Notification $notification)
+    {
         if ($notification->recipient_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -58,6 +96,17 @@ class NotificationController extends Controller
         $user = Auth::user();
         $user->unreadNotifications()->update(['read_at' => now()]);
 
+        return back();
+    }
+
+    /**
+     * API: Mark all notifications as read (JSON response)
+     */
+    public function apiMarkAllAsRead()
+    {
+        $user = Auth::user();
+        $user->unreadNotifications()->update(['read_at' => now()]);
+
         return response()->json(['message' => 'All notifications marked as read']);
     }
 
@@ -66,7 +115,20 @@ class NotificationController extends Controller
      */
     public function destroy(Notification $notification)
     {
-        // Check if user has permission to delete this notification
+        if ($notification->recipient_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $notification->delete();
+
+        return back();
+    }
+
+    /**
+     * API: Delete a notification (JSON response)
+     */
+    public function apiDelete(Notification $notification)
+    {
         if ($notification->recipient_id !== Auth::id()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }

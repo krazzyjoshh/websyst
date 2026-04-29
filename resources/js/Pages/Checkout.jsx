@@ -40,9 +40,9 @@ export default function Checkout({ cartItems, subtotal, shippingFee, total, user
                     <form onSubmit={handleSubmit}>
                         <div className="checkout-layout">
                             <div className="checkout-form glass-card" style={{ padding: 32 }}>
-                                {/* Shipping Info */}
+                                {/* Delivery Info */}
                                 <div className="checkout-form__section">
-                                    <h3><MapPin size={18} style={{ display: 'inline', marginRight: 8 }} />Shipping Information</h3>
+                                    <h3><MapPin size={18} style={{ display: 'inline', marginRight: 8 }} />Delivery Information</h3>
                                     <div className="checkout-form__grid">
                                         <div className="form-group">
                                             <label>Full Name</label>
@@ -61,7 +61,7 @@ export default function Checkout({ cartItems, subtotal, shippingFee, total, user
                                             <input className="form-input" value={form.zip_code} onChange={(e) => update('zip_code', e.target.value)} required />
                                         </div>
                                         <div className="form-group checkout-form__full">
-                                            <label>Shipping Address</label>
+                                            <label>Delivery Address</label>
                                             <textarea className="form-input" rows="3" value={form.shipping_address} onChange={(e) => update('shipping_address', e.target.value)} required />
                                         </div>
                                         <div className="form-group">
@@ -128,7 +128,7 @@ export default function Checkout({ cartItems, subtotal, shippingFee, total, user
                                     <span>Subtotal</span><span>₱{subtotal.toLocaleString()}</span>
                                 </div>
                                 <div className="cart-summary__row">
-                                    <span>Shipping</span><span>{shippingFee === 0 ? <span style={{ color: '#10B981' }}>FREE</span> : `₱${shippingFee}`}</span>
+                                    <span>Delivery Fee</span><span>{shippingFee === 0 ? <span style={{ color: '#10B981' }}>FREE</span> : `₱${shippingFee}`}</span>
                                 </div>
                                 <div className="cart-summary__divider" />
                                 <div className="cart-summary__row cart-summary__row--total">

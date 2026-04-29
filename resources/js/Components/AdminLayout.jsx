@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutDashboard, Users, Package, Tags, ShoppingCart, Store, Settings, ChevronRight, LogOut, User, MessageSquare, CheckCircle } from 'lucide-react';
+import { LayoutDashboard, Users, Package, Tags, ShoppingCart, Store, Settings, ChevronRight, LogOut, User, MessageSquare, CheckCircle, Bell } from 'lucide-react';
+import { useNotifications } from './NotificationProvider';
+import { NotificationDropdown } from './Notification';
 import '../Pages/Admin/Admin.scss';
 
 const menuItems = [
@@ -17,6 +19,16 @@ const menuItems = [
 export default function AdminLayout({ children, title }) {
     const { url, auth } = usePage();
     const user = auth?.user;
+    const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+    const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+
+    useEffect(() => {
+        const handleClick = () => setNotificationDropdownOpen(false);
+        if (notificationDropdownOpen) {
+            setTimeout(() => document.addEventListener('click', handleClick), 0);
+            return () => document.removeEventListener('click', handleClick);
+        }
+    }, [notificationDropdownOpen]);
 
     return (
         <div className="admin-layout">
@@ -58,6 +70,52 @@ export default function AdminLayout({ children, title }) {
                 </nav>
 
                 <div className="admin-sidebar__footer">
+                    <div className="navbar__notification-menu" style={{ position: 'relative' }}>
+                        <button
+                            className="admin-sidebar__item"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setNotificationDropdownOpen(!notificationDropdownOpen);
+                            }}
+                            style={{ position: 'relative', justifyContent: 'flex-start' }}
+                        >
+                            <Bell size={18} />
+                            <span>Notifications</span>
+                            {unreadCount > 0 && (
+                                <span style={{
+                                    position: 'absolute',
+                                    top: '4px',
+                                    right: '4px',
+                                    width: '20px',
+                                    height: '20px',
+                                    borderRadius: '50%',
+                                    background: '#EF4444',
+                                    color: '#FFFFFF',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}>
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {notificationDropdownOpen && (
+                            <NotificationDropdown
+                                notifications={notifications}
+                                onMarkAsRead={markAsRead}
+                                onMarkAllAsRead={markAllAsRead}
+                                onClose={deleteNotification}
+                                position="sidebar"
+                                onViewAll={() => {
+                                    setNotificationDropdownOpen(false);
+                                    window.location.href = '/notifications';
+                                }}
+                            />
+                        )}
+                    </div>
                     <Link href="/" className="admin-sidebar__item">
                         <ChevronRight size={18} /> View Store
                     </Link>

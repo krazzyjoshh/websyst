@@ -1,370 +1,355 @@
-import React, { useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import React, { useState, useRef } from 'react';
+import { Head, router } from '@inertiajs/react';
 import SellerLayout from '../../Components/SellerLayout';
-import { Store, Save, Upload } from 'lucide-react';
+import { Store, Save, Upload, Edit3, X } from 'lucide-react';
 import '../../Pages/Admin/Admin.scss';
 
 export default function SellerSettings({ profile, auth }) {
-    const { data, setData, post, processing, errors } = useForm({
+    const [editing, setEditing] = useState(false);
+    const [processing, setProcessing] = useState(false);
+    const [formData, setFormData] = useState({
         user_name: auth.user.name,
         shop_name: profile?.shop_name || '',
         shop_description: profile?.shop_description || '',
-        shop_logo: null,
     });
-
+    const [shopLogoFile, setShopLogoFile] = useState(null);
     const [previewLogo, setPreviewLogo] = useState(profile?.shop_logo || null);
+    const [errors, setErrors] = useState({});
+    const fileInputRef = useRef(null);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('seller.settings.update'), {
+        setProcessing(true);
+
+        const data = new FormData();
+        data.append('user_name', formData.user_name);
+        data.append('shop_name', formData.shop_name);
+        data.append('shop_description', formData.shop_description || '');
+        if (shopLogoFile) {
+            data.append('shop_logo', shopLogoFile);
+        }
+
+        router.post(route('seller.settings.update'), data, {
             forceFormData: true,
+            onSuccess: () => {
+                setEditing(false);
+                setProcessing(false);
+                setShopLogoFile(null);
+            },
+            onError: (errs) => {
+                setErrors(errs);
+                setProcessing(false);
+            },
         });
+    };
+
+    const handleCancel = () => {
+        setFormData({
+            user_name: auth.user.name,
+            shop_name: profile?.shop_name || '',
+            shop_description: profile?.shop_description || '',
+        });
+        setShopLogoFile(null);
+        setPreviewLogo(profile?.shop_logo || null);
+        setErrors({});
+        setEditing(false);
     };
 
     const handleLogoChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            setData('shop_logo', file);
+            setShopLogoFile(file);
             setPreviewLogo(URL.createObjectURL(file));
         }
     };
 
-    const containerStyle = {
-        padding: '0',
-        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+    const setData = (key, value) => {
+        setFormData(prev => ({ ...prev, [key]: value }));
     };
-
-    const cardStyle = {
-        background: '#FFFFFF',
-        borderRadius: '12px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-        maxWidth: '700px',
-        margin: '0',
-        padding: '36px 32px',
-    };
-
-    const headingStyle = {
-        fontSize: '26px',
-        fontWeight: '700',
-        color: '#111827',
-        marginBottom: '28px',
-        letterSpacing: '-0.5px',
-    };
-
-    const sectionStyle = {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '24px',
-        marginBottom: '32px',
-    };
-
-    const formGroupStyle = {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-    };
-
-    const labelStyle = {
-        fontSize: '13px',
-        fontWeight: '600',
-        color: '#374151',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-    };
-
-    const descriptionLabelStyle = {
-        ...labelStyle,
-        marginBottom: '8px',
-        display: 'block',
-    };
-
-    const descriptionGroupStyle = {
-        ...formGroupStyle,
-        marginBottom: '32px',
-    };
-
-    const inputStyle = {
-        fontSize: '14px',
-        padding: '11px 13px',
-        border: '1px solid #E5E7EB',
-        borderRadius: '8px',
-        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-        transition: 'all 0.2s ease',
-        outline: 'none',
-        backgroundColor: '#FAFAFA',
-        lineHeight: '1.5',
-    };
-
-    const inputHoverStyle = {
-        ...inputStyle,
-        borderColor: '#D1D5DB',
-        backgroundColor: '#FFFFFF',
-    };
-
-    const inputFocusStyle = {
-        ...inputStyle,
-        borderColor: '#8B5CF6',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0 0 0 3px rgba(139, 92, 246, 0.1)',
-    };
-
-    const errorStyle = {
-        fontSize: '12px',
-        color: '#DC2626',
-        marginTop: '4px',
-    };
-
-    const logoUploadStyle = {
-        marginBottom: '32px',
-    };
-
-    const logoPreviewContainerStyle = {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '24px',
-        padding: '24px',
-        background: '#FAFAFA',
-        borderRadius: '10px',
-        border: '1px solid #E5E7EB',
-        marginTop: '12px',
-    };
-
-    const logoImageStyle = {
-        width: '96px',
-        height: '96px',
-        borderRadius: '10px',
-        background: '#F3F4F6',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        border: '2px solid #E5E7EB',
-    };
-
-    const logoSubmittedImageStyle = {
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
-    };
-
-    const uploadAreaStyle = {
-        flex: 1,
-    };
-
-    const uploadButtonStyle = {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '8px',
-        fontSize: '14px',
-        fontWeight: '600',
-        padding: '10px 18px',
-        border: '1.5px solid #D1D5DB',
-        borderRadius: '8px',
-        background: '#FFFFFF',
-        color: '#374151',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-    };
-
-    const uploadButtonHoverStyle = {
-        ...uploadButtonStyle,
-        borderColor: '#8B5CF6',
-        color: '#8B5CF6',
-        background: '#F5F3FF',
-    };
-
-    const restrictionTextStyle = {
-        fontSize: '12px',
-        color: '#6B7280',
-        marginTop: '9px',
-        lineHeight: '1.5',
-    };
-
-    const textareaStyle = {
-        fontSize: '14px',
-        padding: '11px 13px',
-        border: '1px solid #E5E7EB',
-        borderRadius: '8px',
-        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-        resize: 'vertical',
-        minHeight: '110px',
-        transition: 'all 0.2s ease',
-        outline: 'none',
-        backgroundColor: '#FAFAFA',
-        lineHeight: '1.5',
-    };
-
-    const textareaFocusStyle = {
-        ...textareaStyle,
-        borderColor: '#8B5CF6',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0 0 0 3px rgba(139, 92, 246, 0.1)',
-    };
-
-    const buttonContainerStyle = {
-        display: 'flex',
-        justifyContent: 'flex-end',
-        paddingTop: '28px',
-        marginTop: '8px',
-        borderTop: '1px solid #E5E7EB',
-    };
-
-    const submitButtonStyle = {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '10px',
-        fontSize: '15px',
-        fontWeight: '600',
-        padding: '11px 26px',
-        border: 'none',
-        borderRadius: '8px',
-        background: '#1F2937',
-        color: '#FFFFFF',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-        opacity: processing ? 0.6 : 1,
-        pointerEvents: processing ? 'none' : 'auto',
-    };
-
-    const submitButtonHoverStyle = {
-        ...submitButtonStyle,
-        background: '#111827',
-        boxShadow: '0 4px 12px rgba(17, 24, 39, 0.2)',
-    };
-
-    const [uploadHover, setUploadHover] = useState(false);
-    const [submitHover, setSubmitHover] = useState(false);
-    const [ownerFocus, setOwnerFocus] = useState(false);
-    const [shopNameFocus, setShopNameFocus] = useState(false);
-    const [descriptionFocus, setDescriptionFocus] = useState(false);
 
     return (
         <SellerLayout title="Shop Settings">
             <Head title="Seller - Settings" />
 
-            <style>{`
-                @media (max-width: 640px) {
-                    #seller-settings-card {
-                        padding: 24px 20px !important;
-                    }
-                    #seller-settings-grid {
-                        grid-template-columns: 1fr !important;
-                    }
-                    #seller-settings-logo-container {
-                        flex-direction: column;
-                        align-items: flex-start !important;
-                    }
-                    #seller-settings-logo-image {
-                        margin-bottom: 12px;
-                    }
-                }
-            `}</style>
+            <div style={{ padding: 0, fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+                <div style={{
+                    background: '#FFFFFF',
+                    borderRadius: '12px',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                    maxWidth: '700px',
+                    margin: 0,
+                    padding: '36px 32px',
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+                        <h1 style={{
+                            fontSize: '26px',
+                            fontWeight: 700,
+                            color: '#111827',
+                            letterSpacing: '-0.5px',
+                            margin: 0,
+                        }}>Shop Settings</h1>
 
-            <div style={containerStyle}>
-                <div style={cardStyle} id="seller-settings-card">
-                    <h1 style={headingStyle}>Shop Settings</h1>
+                        {!editing && (
+                            <button
+                                type="button"
+                                onClick={() => setEditing(true)}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    padding: '10px 20px',
+                                    border: '1.5px solid #8B5CF6',
+                                    borderRadius: 8,
+                                    background: '#F5F3FF',
+                                    color: '#8B5CF6',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    fontFamily: 'Inter, system-ui, sans-serif',
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = '#8B5CF6'; e.currentTarget.style.color = '#FFF'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = '#F5F3FF'; e.currentTarget.style.color = '#8B5CF6'; }}
+                            >
+                                <Edit3 size={16} />
+                                Edit Profile
+                            </button>
+                        )}
+                    </div>
 
                     <form onSubmit={handleSubmit}>
                         {/* Owner & Shop Name Section */}
-                        <div style={sectionStyle} id="seller-settings-grid">
-                            <div style={formGroupStyle}>
-                                <label htmlFor="owner-name" style={labelStyle}>Owner Name</label>
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                            gap: 24,
+                            marginBottom: 32,
+                        }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <label htmlFor="owner-name" style={{
+                                    fontSize: 13, fontWeight: 600, color: '#374151',
+                                    textTransform: 'uppercase', letterSpacing: '0.5px',
+                                }}>Owner Name</label>
                                 <input
                                     id="owner-name"
                                     type="text"
-                                    value={data.user_name}
+                                    value={formData.user_name}
                                     onChange={e => setData('user_name', e.target.value)}
-                                    onFocus={() => setOwnerFocus(true)}
-                                    onBlur={() => setOwnerFocus(false)}
-                                    style={ownerFocus ? inputFocusStyle : inputHoverStyle}
+                                    disabled={!editing}
                                     required
+                                    style={{
+                                        fontSize: 14,
+                                        padding: '11px 13px',
+                                        border: '1px solid #E5E7EB',
+                                        borderRadius: 8,
+                                        fontFamily: 'Inter, system-ui, sans-serif',
+                                        outline: 'none',
+                                        backgroundColor: editing ? '#FFFFFF' : '#F3F4F6',
+                                        color: editing ? '#111827' : '#6B7280',
+                                        transition: 'all 0.2s ease',
+                                    }}
                                 />
-                                {errors.user_name && <span style={errorStyle}>{errors.user_name}</span>}
+                                {errors.user_name && <span style={{ fontSize: 12, color: '#DC2626', marginTop: 4 }}>{errors.user_name}</span>}
                             </div>
 
-                            <div style={formGroupStyle}>
-                                <label htmlFor="shop-name" style={labelStyle}>Shop / Business Name</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <label htmlFor="shop-name" style={{
+                                    fontSize: 13, fontWeight: 600, color: '#374151',
+                                    textTransform: 'uppercase', letterSpacing: '0.5px',
+                                }}>Shop / Business Name</label>
                                 <input
                                     id="shop-name"
                                     type="text"
-                                    value={data.shop_name}
+                                    value={formData.shop_name}
                                     onChange={e => setData('shop_name', e.target.value)}
-                                    onFocus={() => setShopNameFocus(true)}
-                                    onBlur={() => setShopNameFocus(false)}
-                                    style={shopNameFocus ? inputFocusStyle : inputHoverStyle}
+                                    disabled={!editing}
                                     required
+                                    style={{
+                                        fontSize: 14,
+                                        padding: '11px 13px',
+                                        border: '1px solid #E5E7EB',
+                                        borderRadius: 8,
+                                        fontFamily: 'Inter, system-ui, sans-serif',
+                                        outline: 'none',
+                                        backgroundColor: editing ? '#FFFFFF' : '#F3F4F6',
+                                        color: editing ? '#111827' : '#6B7280',
+                                        transition: 'all 0.2s ease',
+                                    }}
                                 />
-                                {errors.shop_name && <span style={errorStyle}>{errors.shop_name}</span>}
+                                {errors.shop_name && <span style={{ fontSize: 12, color: '#DC2626', marginTop: 4 }}>{errors.shop_name}</span>}
                             </div>
                         </div>
 
                         {/* Logo Upload Section */}
-                        <div style={logoUploadStyle}>
-                            <label style={labelStyle} htmlFor="shop-logo">Shop Logo</label>
-                            <div style={logoPreviewContainerStyle} id="seller-settings-logo-container">
-                                <div style={logoImageStyle} id="seller-settings-logo-image">
+                        <div style={{ marginBottom: 32 }}>
+                            <label style={{
+                                fontSize: 13, fontWeight: 600, color: '#374151',
+                                textTransform: 'uppercase', letterSpacing: '0.5px',
+                            }}>Shop Logo</label>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 24,
+                                padding: 24,
+                                background: '#FAFAFA',
+                                borderRadius: 10,
+                                border: '1px solid #E5E7EB',
+                                marginTop: 12,
+                            }}>
+                                <div style={{
+                                    width: 96,
+                                    height: 96,
+                                    borderRadius: 10,
+                                    background: '#F3F4F6',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden',
+                                    border: '2px solid #E5E7EB',
+                                    flexShrink: 0,
+                                }}>
                                     {previewLogo ? (
-                                        <img src={previewLogo} alt="Shop Logo Preview" style={logoSubmittedImageStyle} />
+                                        <img src={previewLogo} alt="Shop Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
                                         <Store size={40} style={{ color: '#D1D5DB' }} />
                                     )}
                                 </div>
-                                <div style={uploadAreaStyle}>
+                                <div style={{ flex: 1 }}>
                                     <input
+                                        ref={fileInputRef}
                                         id="shop-logo"
                                         type="file"
-                                        accept="image/*"
+                                        accept="image/jpeg,image/png,image/jpg,image/gif"
                                         onChange={handleLogoChange}
+                                        disabled={!editing}
                                         style={{ display: 'none' }}
                                     />
-                                    <label
-                                        htmlFor="shop-logo"
-                                        style={uploadHover ? uploadButtonHoverStyle : uploadButtonStyle}
-                                        onMouseEnter={() => setUploadHover(true)}
-                                        onMouseLeave={() => setUploadHover(false)}
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={!editing}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            fontSize: 14,
+                                            fontWeight: 600,
+                                            padding: '10px 18px',
+                                            border: '1.5px solid #D1D5DB',
+                                            borderRadius: 8,
+                                            background: editing ? '#FFFFFF' : '#F3F4F6',
+                                            color: editing ? '#374151' : '#9CA3AF',
+                                            cursor: editing ? 'pointer' : 'not-allowed',
+                                            transition: 'all 0.2s ease',
+                                            fontFamily: 'Inter, system-ui, sans-serif',
+                                        }}
                                     >
                                         <Upload size={16} />
-                                        Choose File
-                                    </label>
-                                    <p style={restrictionTextStyle}>
-                                        Recommended size: 256×256px<br />
-                                        Max file size: 2MB
+                                        {shopLogoFile ? 'Change File' : 'Choose File'}
+                                    </button>
+                                    {shopLogoFile && (
+                                        <p style={{ fontSize: 12, color: '#10B981', marginTop: 6, fontWeight: 600 }}>
+                                            ✓ {shopLogoFile.name}
+                                        </p>
+                                    )}
+                                    <p style={{ fontSize: 12, color: '#6B7280', marginTop: 9, lineHeight: 1.5 }}>
+                                        Recommended: 256×256px · Max: 2MB · JPG, PNG, GIF
                                     </p>
                                 </div>
                             </div>
-                            {errors.shop_logo && <span style={errorStyle}>{errors.shop_logo}</span>}
+                            {errors.shop_logo && <span style={{ fontSize: 12, color: '#DC2626', marginTop: 4, display: 'block' }}>{errors.shop_logo}</span>}
                         </div>
 
                         {/* Description Section */}
-                        <div style={descriptionGroupStyle}>
-                            <label htmlFor="shop-description" style={descriptionLabelStyle}>Shop Description</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32 }}>
+                            <label htmlFor="shop-description" style={{
+                                fontSize: 13, fontWeight: 600, color: '#374151',
+                                textTransform: 'uppercase', letterSpacing: '0.5px',
+                            }}>Shop Description</label>
                             <textarea
                                 id="shop-description"
-                                value={data.shop_description}
+                                value={formData.shop_description}
                                 onChange={e => setData('shop_description', e.target.value)}
-                                onFocus={() => setDescriptionFocus(true)}
-                                onBlur={() => setDescriptionFocus(false)}
+                                disabled={!editing}
                                 placeholder="Tell customers about your store…"
-                                style={descriptionFocus ? textareaFocusStyle : textareaStyle}
+                                style={{
+                                    fontSize: 14,
+                                    padding: '11px 13px',
+                                    border: '1px solid #E5E7EB',
+                                    borderRadius: 8,
+                                    fontFamily: 'Inter, system-ui, sans-serif',
+                                    resize: 'vertical',
+                                    minHeight: 110,
+                                    outline: 'none',
+                                    backgroundColor: editing ? '#FFFFFF' : '#F3F4F6',
+                                    color: editing ? '#111827' : '#6B7280',
+                                    transition: 'all 0.2s ease',
+                                    lineHeight: 1.5,
+                                }}
                             />
-                            {errors.shop_description && <span style={errorStyle}>{errors.shop_description}</span>}
+                            {errors.shop_description && <span style={{ fontSize: 12, color: '#DC2626', marginTop: 4 }}>{errors.shop_description}</span>}
                         </div>
 
-                        {/* Submit Button */}
-                        <div style={buttonContainerStyle}>
-                            <button
-                                type="submit"
-                                disabled={processing}
-                                style={submitHover ? submitButtonHoverStyle : submitButtonStyle}
-                                onMouseEnter={() => setSubmitHover(true)}
-                                onMouseLeave={() => setSubmitHover(false)}
-                            >
-                                <Save size={18} />
-                                {processing ? 'Saving…' : 'Save Settings'}
-                            </button>
-                        </div>
+                        {/* Buttons */}
+                        {editing && (
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'flex-end',
+                                gap: 12,
+                                paddingTop: 28,
+                                marginTop: 8,
+                                borderTop: '1px solid #E5E7EB',
+                            }}>
+                                <button
+                                    type="button"
+                                    onClick={handleCancel}
+                                    disabled={processing}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        fontSize: 15,
+                                        fontWeight: 600,
+                                        padding: '11px 22px',
+                                        border: '1.5px solid #D1D5DB',
+                                        borderRadius: 8,
+                                        background: '#FFFFFF',
+                                        color: '#374151',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        fontFamily: 'Inter, system-ui, sans-serif',
+                                    }}
+                                >
+                                    <X size={16} />
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={processing}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 10,
+                                        fontSize: 15,
+                                        fontWeight: 600,
+                                        padding: '11px 26px',
+                                        border: 'none',
+                                        borderRadius: 8,
+                                        background: '#8B5CF6',
+                                        color: '#FFFFFF',
+                                        cursor: processing ? 'not-allowed' : 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        fontFamily: 'Inter, system-ui, sans-serif',
+                                        opacity: processing ? 0.6 : 1,
+                                    }}
+                                    onMouseEnter={(e) => { if (!processing) e.currentTarget.style.background = '#7C3AED'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = '#8B5CF6'; }}
+                                >
+                                    <Save size={18} />
+                                    {processing ? 'Saving…' : 'Save Changes'}
+                                </button>
+                            </div>
+                        )}
                     </form>
                 </div>
             </div>

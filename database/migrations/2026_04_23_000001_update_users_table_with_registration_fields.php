@@ -24,7 +24,7 @@ return new class extends Migration
             ADD COLUMN barangay VARCHAR(255) NULL AFTER street_address,
             ADD COLUMN country VARCHAR(255) DEFAULT 'Philippines' AFTER province,
             ADD COLUMN account_type ENUM('buyer', 'seller') DEFAULT 'buyer' AFTER role,
-            ADD COLUMN otp_verified_at TIMESTAMP NULL AFTER email_verified
+            ADD COLUMN otp_verified_at TIMESTAMP NULL AFTER email_verified_at
         ");
     }
 

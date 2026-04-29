@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from '../../Components/AdminLayout';
 import { CheckCircle, XCircle, Eye, Package, AlertTriangle, Search, Filter, Clock, User } from 'lucide-react';
 
@@ -9,7 +9,7 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [showModal, setShowModal] = useState(false);
 
-    const { post, processing } = useForm();
+    const [processing, setProcessing] = useState(false);
 
     const getProductsForTab = () => {
         switch (activeTab) {
@@ -24,27 +24,27 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
         }
     };
 
-    const filteredProducts = getProductsForTab().filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.seller?.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredProducts = getProductsForTab().filter(approval =>
+        (approval.product?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (approval.seller?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleApprove = (productId) => {
-        post(`/admin/products/approvals/${productId}/approve`, {
-            onSuccess: () => {
-                // Refresh the page or update state
-                window.location.reload();
-            }
-        });
+    const handleApprove = (approvalId) => {
+        if (confirm('Are you sure you want to approve this product?')) {
+            router.post(`/admin/product-approvals/${approvalId}/approve`, {}, {
+                preserveScroll: true,
+            });
+        }
     };
 
-    const handleReject = (productId, reason) => {
-        post(`/admin/products/approvals/${productId}/reject`, {
-            data: { reason },
+    const handleReject = (approvalId, reason) => {
+        router.post(`/admin/product-approvals/${approvalId}/reject`, {
+            rejection_reason: reason,
+        }, {
+            preserveScroll: true,
             onSuccess: () => {
                 setShowModal(false);
                 setSelectedProduct(null);
-                window.location.reload();
             }
         });
     };
@@ -213,8 +213,8 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
                         </div>
                     ) : (
                         <div>
-                            {filteredProducts.map(product => (
-                                <div key={product.id} style={{
+                            {filteredProducts.map(approval => (
+                                <div key={approval.id} style={{
                                     padding: '20px',
                                     borderBottom: '1px solid #F3F4F6',
                                     display: 'flex',
@@ -229,10 +229,10 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
                                         overflow: 'hidden',
                                         flexShrink: 0
                                     }}>
-                                        {product.images && product.images[0] ? (
+                                        {approval.product?.images && approval.product.images[0] ? (
                                             <img
-                                                src={product.images[0].image_path}
-                                                alt={product.name}
+                                                src={approval.product.images[0].image_path}
+                                                alt={approval.product.name}
                                                 style={{
                                                     width: '100%',
                                                     height: '100%',
@@ -261,7 +261,7 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
                                             color: '#111827',
                                             marginBottom: '4px'
                                         }}>
-                                            {product.name}
+                                            {approval.product?.name}
                                         </div>
                                         <div style={{
                                             fontSize: '14px',
@@ -272,7 +272,7 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
                                             WebkitBoxOrient: 'vertical',
                                             overflow: 'hidden'
                                         }}>
-                                            {product.description}
+                                            {approval.product?.description}
                                         </div>
                                         <div style={{
                                             display: 'flex',
@@ -283,10 +283,10 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
                                         }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <User size={14} />
-                                                {product.seller?.name || 'Unknown Seller'}
+                                                {approval.seller?.name || 'Unknown Seller'}
                                             </span>
-                                            <span>₱{product.price}</span>
-                                            <span>{product.category?.name}</span>
+                                            <span>₱{approval.product?.price}</span>
+                                            <span>{approval.product?.category?.name}</span>
                                         </div>
                                     </div>
 
@@ -300,17 +300,17 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
                                             borderRadius: '20px',
                                             fontSize: '12px',
                                             fontWeight: 600,
-                                            background: `${getStatusColor(product.approval_status)}20`,
-                                            color: getStatusColor(product.approval_status)
+                                            background: `${getStatusColor(approval.status)}20`,
+                                            color: getStatusColor(approval.status)
                                         }}>
-                                            {getStatusIcon(product.approval_status)}
-                                            {product.approval_status?.charAt(0).toUpperCase() + product.approval_status?.slice(1)}
+                                            {getStatusIcon(approval.status)}
+                                            {approval.status?.charAt(0).toUpperCase() + approval.status?.slice(1)}
                                         </div>
 
                                         <div style={{ display: 'flex', gap: '8px' }}>
                                             <button
                                                 onClick={() => {
-                                                    setSelectedProduct(product);
+                                                    setSelectedProduct(approval);
                                                     setShowModal(true);
                                                 }}
                                                 style={{
@@ -326,10 +326,10 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
                                                 <Eye size={16} />
                                             </button>
 
-                                            {product.approval_status === 'pending' && (
+                                            {approval.status === 'pending' && (
                                                 <>
                                                     <button
-                                                        onClick={() => handleApprove(product.id)}
+                                                        onClick={() => handleApprove(approval.id)}
                                                         disabled={processing}
                                                         style={{
                                                             padding: '8px',
@@ -348,7 +348,7 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
                                                         onClick={() => {
                                                             const reason = prompt('Reason for rejection:');
                                                             if (reason) {
-                                                                handleReject(product.id, reason);
+                                                                handleReject(approval.id, reason);
                                                             }
                                                         }}
                                                         disabled={processing}
@@ -429,10 +429,10 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
                         <div style={{ padding: '24px' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: '20px', marginBottom: '24px' }}>
                                 <div>
-                                    {selectedProduct.images && selectedProduct.images[0] ? (
+                                    {selectedProduct.product?.images && selectedProduct.product.images[0] ? (
                                         <img
-                                            src={selectedProduct.images[0].image_path}
-                                            alt={selectedProduct.name}
+                                            src={selectedProduct.product.images[0].image_path}
+                                            alt={selectedProduct.product.name}
                                             style={{
                                                 width: '100%',
                                                 borderRadius: '8px',
@@ -456,19 +456,19 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
 
                                 <div>
                                     <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#111827', margin: '0 0 8px 0' }}>
-                                        {selectedProduct.name}
+                                        {selectedProduct.product?.name}
                                     </h3>
                                     <p style={{ color: '#6B7280', margin: '0 0 16px 0', lineHeight: 1.5 }}>
-                                        {selectedProduct.description}
+                                        {selectedProduct.product?.description}
                                     </p>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
                                         <div>
                                             <span style={{ fontWeight: 600, color: '#374151' }}>Price:</span>
-                                            <span style={{ color: '#111827', marginLeft: '8px' }}>₱{selectedProduct.price}</span>
+                                            <span style={{ color: '#111827', marginLeft: '8px' }}>₱{selectedProduct.product?.price}</span>
                                         </div>
                                         <div>
                                             <span style={{ fontWeight: 600, color: '#374151' }}>Category:</span>
-                                            <span style={{ color: '#111827', marginLeft: '8px' }}>{selectedProduct.category?.name}</span>
+                                            <span style={{ color: '#111827', marginLeft: '8px' }}>{selectedProduct.product?.category?.name}</span>
                                         </div>
                                         <div>
                                             <span style={{ fontWeight: 600, color: '#374151' }}>Seller:</span>
@@ -477,18 +477,18 @@ export default function ProductApprovals({ pendingProducts, approvedProducts, re
                                         <div>
                                             <span style={{ fontWeight: 600, color: '#374151' }}>Status:</span>
                                             <span style={{
-                                                color: getStatusColor(selectedProduct.approval_status),
+                                                color: getStatusColor(selectedProduct.status),
                                                 marginLeft: '8px',
                                                 fontWeight: 600
                                             }}>
-                                                {selectedProduct.approval_status?.charAt(0).toUpperCase() + selectedProduct.approval_status?.slice(1)}
+                                                {selectedProduct.status?.charAt(0).toUpperCase() + selectedProduct.status?.slice(1)}
                                             </span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {selectedProduct.approval_status === 'pending' && (
+                            {selectedProduct.status === 'pending' && (
                                 <div style={{ display: 'flex', gap: '12px', paddingTop: '20px', borderTop: '1px solid #F3F4F6' }}>
                                     <button
                                         onClick={() => handleApprove(selectedProduct.id)}

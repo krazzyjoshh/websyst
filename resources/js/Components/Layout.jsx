@@ -63,7 +63,7 @@ export default function Layout({ children }) {
                                 </Link>
 
                                 {/* Notifications */}
-                                <div className="navbar__notification-menu">
+                                <div className="navbar__notification-menu" style={{ position: 'relative' }}>
                                     <button
                                         className="navbar__notification-btn"
                                         onClick={(e) => {
@@ -95,7 +95,7 @@ export default function Layout({ children }) {
                                     )}
                                 </div>
 
-                                <div className="navbar__user-menu">
+                                <div className="navbar__user-menu" style={{ position: 'relative' }}>
                                     <button
                                         className="navbar__user-btn"
                                         onClick={(e) => {
@@ -219,7 +219,6 @@ export default function Layout({ children }) {
                     </div>
 
                     <div className="footer__bottom">
-                        <p>© 2024 SHOP HUB. All rights reserved.</p>
                         <div className="footer__bottom-links">
                             <a href="#">Privacy Policy</a>
                             <a href="#">Terms of Service</a>

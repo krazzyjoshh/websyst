@@ -111,25 +111,43 @@ const NotificationItem = ({ notification, onMarkAsRead, onClose }) => {
     );
 };
 
-const NotificationDropdown = ({ notifications, onMarkAsRead, onMarkAllAsRead, onClose, onViewAll }) => {
+const NotificationDropdown = ({ notifications, onMarkAsRead, onMarkAllAsRead, onClose, onViewAll, position = 'navbar' }) => {
     const unreadCount = notifications.filter(n => !n.read_at).length;
+
+    const dropdownStyle = position === 'sidebar'
+        ? {
+            position: 'fixed',
+            bottom: '80px',
+            left: '260px',
+            width: '400px',
+            maxHeight: '500px',
+            background: '#FFFFFF',
+            border: '1px solid #E5E7EB',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            zIndex: 9999,
+            overflow: 'hidden'
+        }
+        : {
+            position: 'absolute',
+            top: '100%',
+            right: 0,
+            marginTop: '8px',
+            width: '400px',
+            maxHeight: '500px',
+            background: '#FFFFFF',
+            border: '1px solid #E5E7EB',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            zIndex: 9999,
+            overflow: 'hidden'
+        };
 
     return (
         <div
             className="notification-dropdown"
-            style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                width: '400px',
-                maxHeight: '500px',
-                background: '#FFFFFF',
-                border: '1px solid #E5E7EB',
-                borderRadius: '12px',
-                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                zIndex: 1000,
-                overflow: 'hidden'
-            }}
+            onClick={(e) => e.stopPropagation()}
+            style={dropdownStyle}
         >
             <div style={{
                 padding: '16px 20px',
@@ -166,7 +184,11 @@ const NotificationDropdown = ({ notifications, onMarkAsRead, onMarkAllAsRead, on
                 </h3>
                 {unreadCount > 0 && (
                     <button
-                        onClick={onMarkAllAsRead}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            onMarkAllAsRead();
+                        }}
                         style={{
                             background: 'none',
                             border: 'none',
@@ -175,10 +197,12 @@ const NotificationDropdown = ({ notifications, onMarkAsRead, onMarkAllAsRead, on
                             fontWeight: 500,
                             cursor: 'pointer',
                             padding: '4px 8px',
-                            borderRadius: '4px'
+                            borderRadius: '4px',
+                            position: 'relative',
+                            zIndex: 10
                         }}
-                        onMouseEnter={(e) => e.target.style.background = '#EFF6FF'}
-                        onMouseLeave={(e) => e.target.style.background = 'none'}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#EFF6FF'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
                     >
                         Mark all read
                     </button>
@@ -327,15 +351,12 @@ const NotificationToast = ({ notification, onClose, autoClose = true }) => {
         <div
             className="notification-toast"
             style={{
-                position: 'fixed',
-                top: '20px',
-                right: '20px',
+                position: 'relative',
                 width: '350px',
                 background: getBackgroundColor(notification.type),
                 border: `1px solid ${getBorderColor(notification.type)}`,
                 borderRadius: '8px',
                 boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                zIndex: 9999,
                 transform: visible ? 'translateX(0)' : 'translateX(100%)',
                 transition: 'transform 0.3s ease',
                 overflow: 'hidden'

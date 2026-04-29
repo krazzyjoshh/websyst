@@ -228,11 +228,6 @@ class AdminCrudController extends Controller
         ]);
     }
 
-    public function generateInviteCode(Request $request)
-    {
-        // This endpoint is deprecated - seller registration no longer requires invitation codes
-        return back()->with('error', 'Invitation codes are no longer used for seller registration.');
-    }
 
     public function verifySeller(Request $request, User $seller)
     {

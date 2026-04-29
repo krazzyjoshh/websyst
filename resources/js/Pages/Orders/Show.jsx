@@ -72,7 +72,7 @@ export default function OrderShow({ order }) {
                                     <span>Subtotal</span><span>₱{parseFloat(order.subtotal).toLocaleString()}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#A3A3A3', marginBottom: 8 }}>
-                                    <span>Shipping</span><span>{parseFloat(order.shipping_fee) === 0 ? 'FREE' : `₱${parseFloat(order.shipping_fee).toLocaleString()}`}</span>
+                                    <span>Delivery Fee</span><span>{parseFloat(order.shipping_fee) === 0 ? 'FREE' : `₱${parseFloat(order.shipping_fee).toLocaleString()}`}</span>
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 20, fontWeight: 700, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                                     <span>Total</span><span style={{ color: '#00F0FF', fontFamily: 'Space Grotesk' }}>₱{parseFloat(order.total).toLocaleString()}</span>
@@ -82,7 +82,7 @@ export default function OrderShow({ order }) {
 
                         {/* Details */}
                         <div className="glass-card" style={{ padding: 28 }}>
-                            <h3 style={{ fontFamily: 'Space Grotesk', fontWeight: 700, marginBottom: 20 }}>Shipping Details</h3>
+                            <h3 style={{ fontFamily: 'Space Grotesk', fontWeight: 700, marginBottom: 20 }}>Delivery Details</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 {[
                                     ['Name', order.customer_name],

@@ -1,27 +1,64 @@
-import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Head, Link, router } from '@inertiajs/react';
 import Layout from '../Components/Layout';
-import { useNotifications } from '../Components/NotificationProvider';
-import { NotificationItem } from '../Components/Notification';
-import { ArrowLeft, Bell, CheckCircle, AlertCircle, Info, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Bell, CheckCircle, AlertCircle, Info, MessageSquare, X, Trash2 } from 'lucide-react';
 
-export default function Notifications() {
-    const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, loading } = useNotifications();
+export default function Notifications({ notifications: paginatedNotifications, unreadCount: initialUnreadCount }) {
+    const notificationsList = paginatedNotifications?.data || [];
+    const [unreadCount, setUnreadCount] = useState(initialUnreadCount || 0);
 
-    const getStats = () => {
-        const total = notifications.length;
-        const unread = notifications.filter(n => !n.read_at).length;
-        const read = total - unread;
-
-        const types = notifications.reduce((acc, notification) => {
-            acc[notification.type] = (acc[notification.type] || 0) + 1;
-            return acc;
-        }, {});
-
-        return { total, unread, read, types };
+    const getIcon = (type) => {
+        switch (type) {
+            case 'success':
+                return <CheckCircle size={20} style={{ color: '#10B981' }} />;
+            case 'error':
+                return <AlertCircle size={20} style={{ color: '#EF4444' }} />;
+            case 'warning':
+                return <AlertCircle size={20} style={{ color: '#F59E0B' }} />;
+            case 'message':
+                return <MessageSquare size={20} style={{ color: '#8B5CF6' }} />;
+            case 'info':
+            default:
+                return <Info size={20} style={{ color: '#3B82F6' }} />;
+        }
     };
 
-    const stats = getStats();
+    const getTypeColor = (type) => {
+        switch (type) {
+            case 'success': return '#10B981';
+            case 'error': return '#EF4444';
+            case 'warning': return '#F59E0B';
+            case 'message': return '#8B5CF6';
+            case 'info': default: return '#3B82F6';
+        }
+    };
+
+    const handleMarkAsRead = (notificationId) => {
+        router.post(`/notifications/${notificationId}/read`, {}, {
+            preserveScroll: true,
+            onSuccess: () => setUnreadCount(prev => Math.max(0, prev - 1)),
+        });
+    };
+
+    const handleMarkAllAsRead = () => {
+        router.post('/notifications/read-all', {}, {
+            preserveScroll: true,
+            onSuccess: () => setUnreadCount(0),
+        });
+    };
+
+    const handleDelete = (notificationId) => {
+        router.delete(`/notifications/${notificationId}`, {
+            preserveScroll: true,
+        });
+    };
+
+    const stats = {
+        total: notificationsList.length,
+        unread: notificationsList.filter(n => !n.read_at).length,
+        read: notificationsList.filter(n => n.read_at).length,
+        messages: notificationsList.filter(n => n.type === 'message').length,
+    };
 
     return (
         <Layout>
@@ -67,8 +104,7 @@ export default function Notifications() {
 
                         {unreadCount > 0 && (
                             <button
-                                onClick={markAllAsRead}
-                                disabled={loading}
+                                onClick={handleMarkAllAsRead}
                                 style={{
                                     background: '#8B5CF6',
                                     color: '#FFFFFF',
@@ -83,8 +119,8 @@ export default function Notifications() {
                                     gap: '8px',
                                     transition: 'all 0.2s'
                                 }}
-                                onMouseEnter={(e) => e.target.style.background = '#7C3AED'}
-                                onMouseLeave={(e) => e.target.style.background = '#8B5CF6'}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = '#7C3AED'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = '#8B5CF6'; }}
                             >
                                 <CheckCircle size={16} />
                                 Mark All Read
@@ -100,97 +136,30 @@ export default function Notifications() {
                     gap: '16px',
                     marginBottom: '32px'
                 }}>
-                    <div style={{
-                        background: '#FFFFFF',
-                        border: '1px solid #F3F4F6',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        textAlign: 'center'
-                    }}>
-                        <div style={{
-                            width: '48px',
-                            height: '48px',
-                            background: '#EFF6FF',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto 12px'
+                    {[
+                        { icon: Bell, value: stats.total, label: 'Total Notifications', bg: '#EFF6FF', color: '#3B82F6' },
+                        { icon: AlertCircle, value: stats.unread, label: 'Unread', bg: '#FEF3C7', color: '#F59E0B' },
+                        { icon: CheckCircle, value: stats.read, label: 'Read', bg: '#ECFDF5', color: '#10B981' },
+                        { icon: MessageSquare, value: stats.messages, label: 'Messages', bg: '#F3E8FF', color: '#8B5CF6' },
+                    ].map((stat, i) => (
+                        <div key={i} style={{
+                            background: '#FFFFFF',
+                            border: '1px solid #F3F4F6',
+                            borderRadius: '12px',
+                            padding: '20px',
+                            textAlign: 'center'
                         }}>
-                            <Bell size={24} style={{ color: '#3B82F6' }} />
+                            <div style={{
+                                width: '48px', height: '48px', background: stat.bg,
+                                borderRadius: '50%', display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', margin: '0 auto 12px'
+                            }}>
+                                <stat.icon size={24} style={{ color: stat.color }} />
+                            </div>
+                            <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827' }}>{stat.value}</div>
+                            <div style={{ fontSize: '14px', color: '#6B7280' }}>{stat.label}</div>
                         </div>
-                        <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827' }}>{stats.total}</div>
-                        <div style={{ fontSize: '14px', color: '#6B7280' }}>Total Notifications</div>
-                    </div>
-
-                    <div style={{
-                        background: '#FFFFFF',
-                        border: '1px solid #F3F4F6',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        textAlign: 'center'
-                    }}>
-                        <div style={{
-                            width: '48px',
-                            height: '48px',
-                            background: '#FEF3C7',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto 12px'
-                        }}>
-                            <AlertCircle size={24} style={{ color: '#F59E0B' }} />
-                        </div>
-                        <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827' }}>{stats.unread}</div>
-                        <div style={{ fontSize: '14px', color: '#6B7280' }}>Unread</div>
-                    </div>
-
-                    <div style={{
-                        background: '#FFFFFF',
-                        border: '1px solid #F3F4F6',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        textAlign: 'center'
-                    }}>
-                        <div style={{
-                            width: '48px',
-                            height: '48px',
-                            background: '#ECFDF5',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto 12px'
-                        }}>
-                            <CheckCircle size={24} style={{ color: '#10B981' }} />
-                        </div>
-                        <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827' }}>{stats.read}</div>
-                        <div style={{ fontSize: '14px', color: '#6B7280' }}>Read</div>
-                    </div>
-
-                    <div style={{
-                        background: '#FFFFFF',
-                        border: '1px solid #F3F4F6',
-                        borderRadius: '12px',
-                        padding: '20px',
-                        textAlign: 'center'
-                    }}>
-                        <div style={{
-                            width: '48px',
-                            height: '48px',
-                            background: '#F3E8FF',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto 12px'
-                        }}>
-                            <MessageSquare size={24} style={{ color: '#8B5CF6' }} />
-                        </div>
-                        <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827' }}>{stats.types.message || 0}</div>
-                        <div style={{ fontSize: '14px', color: '#6B7280' }}>Messages</div>
-                    </div>
+                    ))}
                 </div>
 
                 {/* Notifications List */}
@@ -200,7 +169,7 @@ export default function Notifications() {
                     borderRadius: '12px',
                     overflow: 'hidden'
                 }}>
-                    {notifications.length === 0 ? (
+                    {notificationsList.length === 0 ? (
                         <div style={{
                             padding: '80px 40px',
                             textAlign: 'center',
@@ -216,17 +185,101 @@ export default function Notifications() {
                         </div>
                     ) : (
                         <div>
-                            {notifications.map(notification => (
-                                <NotificationItem
+                            {notificationsList.map(notification => (
+                                <div
                                     key={notification.id}
-                                    notification={notification}
-                                    onMarkAsRead={markAsRead}
-                                    onClose={deleteNotification}
-                                />
+                                    style={{
+                                        borderLeft: `4px solid ${getTypeColor(notification.type)}`,
+                                        background: notification.read_at ? '#F9FAFB' : '#FFFFFF',
+                                        padding: '16px 20px',
+                                        borderBottom: '1px solid #F3F4F6',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                    }}
+                                    onClick={() => !notification.read_at && handleMarkAsRead(notification.id)}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                        <div style={{ flexShrink: 0, marginTop: 2 }}>
+                                            {getIcon(notification.type)}
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                <h4 style={{
+                                                    fontSize: '14px', fontWeight: 600,
+                                                    color: '#111827', margin: 0, lineHeight: 1.4
+                                                }}>
+                                                    {notification.title}
+                                                </h4>
+                                                {!notification.read_at && (
+                                                    <span style={{
+                                                        width: '8px', height: '8px',
+                                                        background: '#3B82F6', borderRadius: '50%',
+                                                        flexShrink: 0
+                                                    }} />
+                                                )}
+                                            </div>
+                                            <p style={{
+                                                fontSize: '13px', color: '#6B7280',
+                                                margin: '0 0 8px 0', lineHeight: 1.4
+                                            }}>
+                                                {notification.message}
+                                            </p>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <span style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                                                    {new Date(notification.created_at).toLocaleString()}
+                                                </span>
+                                                {notification.sender && (
+                                                    <span style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                                                        From: {notification.sender.name}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDelete(notification.id);
+                                            }}
+                                            style={{
+                                                background: 'none', border: 'none', cursor: 'pointer',
+                                                padding: '4px', borderRadius: '4px', color: '#9CA3AF',
+                                                flexShrink: 0
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.background = '#FEE2E2'; e.currentTarget.style.color = '#EF4444'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#9CA3AF'; }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     )}
                 </div>
+
+                {/* Pagination */}
+                {paginatedNotifications?.last_page > 1 && (
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '24px' }}>
+                        {paginatedNotifications.links.map((link, i) => (
+                            <Link
+                                key={i}
+                                href={link.url || '#'}
+                                style={{
+                                    padding: '8px 14px',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    background: link.active ? '#8B5CF6' : '#FFFFFF',
+                                    color: link.active ? '#FFFFFF' : '#374151',
+                                    border: '1px solid #E5E7EB',
+                                    textDecoration: 'none',
+                                    opacity: link.url ? 1 : 0.5,
+                                    pointerEvents: link.url ? 'auto' : 'none',
+                                }}
+                                dangerouslySetInnerHTML={{ __html: link.label }}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
         </Layout>
     );

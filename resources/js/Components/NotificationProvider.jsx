@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { router } from '@inertiajs/react';
 import { NotificationToast } from './Notification';
 
@@ -7,7 +7,17 @@ const NotificationContext = createContext();
 export const useNotifications = () => {
     const context = useContext(NotificationContext);
     if (!context) {
-        throw new Error('useNotifications must be used within a NotificationProvider');
+        // Return a default context instead of throwing (for pages that don't need it)
+        return {
+            notifications: [],
+            unreadCount: 0,
+            loading: false,
+            markAsRead: () => {},
+            markAllAsRead: () => {},
+            deleteNotification: () => {},
+            fetchNotifications: () => {},
+            showToast: () => {},
+        };
     }
     return context;
 };
@@ -18,22 +28,45 @@ export const NotificationProvider = ({ children }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(false);
 
+    // Get CSRF token from meta tag
+    const getCsrfToken = () => {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    };
+
+    const notificationsRef = useRef([]);
+    const isFirstLoad = useRef(true);
+
     // Fetch notifications from server
     const fetchNotifications = useCallback(async () => {
         try {
             const response = await fetch('/api/notifications', {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
                 },
+                credentials: 'same-origin',
             });
 
             if (response.ok) {
                 const data = await response.json();
-                setNotifications(data.notifications || []);
+                const newNotifications = data.notifications || [];
+                const currentNotifications = notificationsRef.current;
+                // Check for new notifications and show toast
+                if (!isFirstLoad.current) {
+                    const existingIds = new Set(currentNotifications.map(n => n.id));
+                    const newOnes = newNotifications.filter(n => !existingIds.has(n.id));
+                    newOnes.forEach(n => showToast(n));
+                }
+                
+                isFirstLoad.current = false;
+                notificationsRef.current = newNotifications;
+                setNotifications(newNotifications);
                 setUnreadCount(data.unread_count || 0);
             }
         } catch (error) {
-            console.error('Failed to fetch notifications:', error);
+            // Silently fail
+            console.debug('Notifications fetch skipped:', error.message);
         }
     }, []);
 
@@ -45,7 +78,9 @@ export const NotificationProvider = ({ children }) => {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': getCsrfToken(),
                 },
+                credentials: 'same-origin',
             });
 
             if (response.ok) {
@@ -71,7 +106,9 @@ export const NotificationProvider = ({ children }) => {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': getCsrfToken(),
                 },
+                credentials: 'same-origin',
             });
 
             if (response.ok) {
@@ -95,13 +132,14 @@ export const NotificationProvider = ({ children }) => {
                 method: 'DELETE',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': getCsrfToken(),
                 },
+                credentials: 'same-origin',
             });
 
             if (response.ok) {
-                setNotifications(prev => prev.filter(n => n.id !== notificationId));
-                // Update unread count if deleted notification was unread
                 const deletedNotification = notifications.find(n => n.id === notificationId);
+                setNotifications(prev => prev.filter(n => n.id !== notificationId));
                 if (deletedNotification && !deletedNotification.read_at) {
                     setUnreadCount(prev => Math.max(0, prev - 1));
                 }
@@ -117,15 +155,14 @@ export const NotificationProvider = ({ children }) => {
         const toastNotification = {
             ...notification,
             id: toastId,
-            created_at: new Date().toISOString(),
+            created_at: notification.created_at || new Date().toISOString(),
         };
 
         setToastNotifications(prev => [...prev, toastNotification]);
 
-        // Auto-remove toast after animation
         setTimeout(() => {
             setToastNotifications(prev => prev.filter(t => t.id !== toastId));
-        }, 5500); // Slightly longer than the auto-close duration
+        }, 5500);
     }, []);
 
     // Close toast notification
@@ -141,24 +178,7 @@ export const NotificationProvider = ({ children }) => {
         const interval = setInterval(fetchNotifications, 30000);
 
         return () => clearInterval(interval);
-    }, [fetchNotifications]);
-
-    // Listen for real-time notifications (if using WebSockets or Server-Sent Events)
-    useEffect(() => {
-        const handleNewNotification = (event) => {
-            const newNotification = JSON.parse(event.data);
-            setNotifications(prev => [newNotification, ...prev]);
-            setUnreadCount(prev => prev + 1);
-            showToast(newNotification);
-        };
-
-        // For now, we'll use polling. In production, you might want to implement WebSockets
-        // window.addEventListener('notification', handleNewNotification);
-
-        return () => {
-            // window.removeEventListener('notification', handleNewNotification);
-        };
-    }, [showToast]);
+    }, []);
 
     // Listen for Inertia navigation to refresh notifications
     useEffect(() => {
@@ -188,13 +208,15 @@ export const NotificationProvider = ({ children }) => {
         <NotificationContext.Provider value={value}>
             {children}
             {/* Render toast notifications */}
-            {toastNotifications.map(toast => (
-                <NotificationToast
-                    key={toast.id}
-                    notification={toast}
-                    onClose={closeToast}
-                />
-            ))}
+            <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {toastNotifications.map(toast => (
+                    <NotificationToast
+                        key={toast.id}
+                        notification={toast}
+                        onClose={closeToast}
+                    />
+                ))}
+            </div>
         </NotificationContext.Provider>
     );
 };

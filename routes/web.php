@@ -29,13 +29,15 @@ Route::get('/category/{slug}', [ProductController::class, 'byCategory'])->name('
 
 // ─── AUTH ───
 Route::middleware('guest')->group(function () {
+    // OTP Routes
+    Route::post('/send-otp', [AuthController::class, 'sendOtp'])->name('otp.send');
+    Route::post('/verify-otp', [AuthController::class, 'verifyOtp'])->name('otp.verify');
+
     // Customer auth
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/register/send-otp', [AuthController::class, 'sendRegisterOTP']);
-    Route::post('/register/verify-otp', [AuthController::class, 'verifyRegisterOTP']);
 
     // Admin auth
     Route::get('/admin/login', [AuthController::class, 'showAdminLogin'])->name('admin.login');
@@ -47,9 +49,7 @@ Route::middleware('guest')->group(function () {
     Route::get('/seller/login', [AuthController::class, 'showSellerLogin'])->name('seller.login');
     Route::post('/seller/login', [AuthController::class, 'sellerLogin']);
     Route::get('/seller/register', [AuthController::class, 'showSellerRegister'])->name('seller.register');
-    Route::post('/seller/register', [AuthController::class, 'sellerRegister']);
-    Route::post('/seller/register/send-otp', [AuthController::class, 'sendSellerRegisterOTP']);
-    Route::post('/seller/register/verify-otp', [AuthController::class, 'verifySellerRegisterOTP']);
+    Route::post('/seller/register', [AuthController::class, 'register']);
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
@@ -76,12 +76,20 @@ Route::middleware('auth')->group(function () {
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update.post');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
-    // Notifications
+    // Notifications (Inertia pages)
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
     Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
+
+    // Notification API (JSON - for NotificationProvider polling)
+    Route::prefix('api')->group(function () {
+        Route::get('/notifications', [NotificationController::class, 'apiIndex']);
+        Route::post('/notifications/{notification}/read', [NotificationController::class, 'apiMarkAsRead']);
+        Route::post('/notifications/mark-all-read', [NotificationController::class, 'apiMarkAllAsRead']);
+        Route::delete('/notifications/{notification}', [NotificationController::class, 'apiDelete']);
+    });
 });
 
 // ─── ADMIN ───
@@ -110,14 +118,17 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::put('/sellers/{seller}/verify', [AdminCrudController::class, 'verifySeller'])->name('sellers.verify');
 
     // Admin messaging
+    Route::get('/messaging', [AdminMessagingController::class, 'index'])->name('messaging');
     Route::post('/messages/send', [AdminMessagingController::class, 'sendMessage'])->name('messages.send');
+    Route::post('/messages/send-to-all', [AdminMessagingController::class, 'sendToAll'])->name('messages.send_to_all');
     Route::get('/messages/sent', [AdminMessagingController::class, 'sentMessages'])->name('messages.sent');
     Route::get('/messages/unread', [AdminMessagingController::class, 'unreadMessages'])->name('messages.unread');
     Route::get('/messages/stats', [AdminMessagingController::class, 'messageStats'])->name('messages.stats');
 
     // Product approval workflow
+    Route::get('/product-approvals', [ProductApprovalController::class, 'index'])->name('approvals.index');
     Route::get('/product-approvals/pending', [ProductApprovalController::class, 'pendingApprovals'])->name('approvals.pending');
-    Route::get('/product-approvals', [ProductApprovalController::class, 'allApprovals'])->name('approvals.all');
+    Route::get('/product-approvals/all', [ProductApprovalController::class, 'allApprovals'])->name('approvals.all');
     Route::get('/product-approvals/flagged', [ProductApprovalController::class, 'flaggedProducts'])->name('approvals.flagged');
     Route::post('/product-approvals/{approval}/approve', [ProductApprovalController::class, 'approve'])->name('approvals.approve');
     Route::post('/product-approvals/{approval}/reject', [ProductApprovalController::class, 'reject'])->name('approvals.reject');

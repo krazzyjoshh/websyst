@@ -19,6 +19,7 @@ class HomeController extends Controller
 
         $featuredProducts = Product::where('is_featured', true)
             ->where('is_active', true)
+            ->where('approval_status', 'approved')
             ->with('images', 'category')
             ->orderByDesc('sales_count')
             ->limit(6)
@@ -28,6 +29,7 @@ class HomeController extends Controller
             });
 
         $dealProducts = Product::where('is_active', true)
+            ->where('approval_status', 'approved')
             ->whereNotNull('compare_price')
             ->whereColumn('compare_price', '>', 'price')
             ->with('images', 'category')
@@ -39,6 +41,7 @@ class HomeController extends Controller
             });
 
         $trendingProducts = Product::where('is_active', true)
+            ->where('approval_status', 'approved')
             ->with('images')
             ->orderByDesc('views')
             ->limit(10)
@@ -48,7 +51,7 @@ class HomeController extends Controller
             });
 
         $stats = [
-            'totalProducts' => Product::where('is_active', true)->count(),
+            'totalProducts' => Product::where('is_active', true)->where('approval_status', 'approved')->count(),
             'activeSellers' => User::where('role', 'seller')->count(),
             'monthlyRevenue' => Order::where('status', 'delivered')
                 ->whereMonth('created_at', now()->month)

@@ -269,8 +269,8 @@ export default function Messaging({ users, recentMessages }) {
                                     transition: 'all 0.2s',
                                     opacity: (processing || (data.recipient_type === 'individual' && selectedUsers.length === 0)) ? 0.6 : 1
                                 }}
-                                onMouseEnter={(e) => !processing && e.target.style.background = '#7C3AED'}
-                                onMouseLeave={(e) => !processing && e.target.style.background = '#8B5CF6'}
+                                onMouseEnter={(e) => { if (!processing) e.target.style.background = '#7C3AED'; }}
+                                onMouseLeave={(e) => { if (!processing) e.target.style.background = '#8B5CF6'; }}
                             >
                                 <Send size={16} />
                                 {processing ? 'Sending...' : 'Send Message'}
